@@ -1,9 +1,9 @@
 import { rpc, client } from './client';
 import type { Avatar, World, Player, Message } from '../types';
 export const islandService = {
-  load: (owner?: string) => rpc<World>('load_world', { p_owner: owner ?? null }),
-  create: (username: string, name: string, avatar: Avatar) =>
-    rpc('create_village', { p_username: username, p_name: name, p_avatar: avatar }),
+  load: () => rpc<World>('load_world'),
+  create: (username: string, avatar: Avatar) =>
+    rpc('create_village', { p_username: username, p_name: 'Beuteu Island', p_avatar: avatar }),
 };
 export const action = (
   type: string,
@@ -22,6 +22,7 @@ export const agricultureService = {
 export const constructionService = {
   place: (kind: string, x: number, y: number) => action('build', { kind, x, y }),
   move: (id: string, x: number, y: number) => action('move', { id, x, y }),
+  assign: (id: string, userId: string | null) => action('assign', { id, user_id: userId }),
 };
 export const profileService = {
   avatar: (avatar: Avatar) => action('avatar', avatar),

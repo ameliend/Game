@@ -5,7 +5,15 @@ export type Island = { id: string; owner_id: string; name: string; gold: number;
 export type Tree = { id: number; x: number; y: number; cut_at: string | null };
 export type Plot = { id: number; x: number; y: number };
 export type Plantation = { plot_id: number; crop: CropKind; planted_at: string };
-export type Building = { id: string; kind: BuildingKind; x: number; y: number; size: number };
+export type Building = {
+  id: string;
+  kind: BuildingKind;
+  x: number;
+  y: number;
+  size: number;
+  created_by?: string | null;
+  assigned_to?: string | null;
+};
 export type World = {
   island: Island;
   profile: Profile;

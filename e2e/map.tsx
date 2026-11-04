@@ -31,7 +31,7 @@ function Harness() {
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
         onPlace={(x, y) => setSelection('place:' + x + ',' + y)}
         onPosition={(x, y) => setPos(x + ',' + y)}
-        guests={[]}
+        guests={[{ id: 'other', username: 'Autre habitant', x: 17, y: 17, avatar: world.avatar }]}
         sceneRef={ref}
       />
       <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'white', padding: 10 }}>

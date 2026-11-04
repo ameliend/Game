@@ -20,6 +20,7 @@ test('Phaser affiche la carte, sélectionne, déplace et prévisualise', async (
   await page.goto('/e2e/map.html');
   await expect(page.locator('canvas')).toBeVisible();
   await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await expect.poll(() => page.evaluate(() => (window as any).scene.current.guests.size)).toBe(1);
   const tree = await coords(page, 6, 10);
   await click(tree.x, tree.y);
   await expect(page.getByTestId('selection')).toHaveText('tree:1');

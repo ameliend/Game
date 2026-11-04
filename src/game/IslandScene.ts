@@ -28,6 +28,8 @@ export class IslandScene extends Phaser.Scene {
   private dragged = false;
   private pinch = 0;
   private lastClock = 0;
+  private pendingGuests: { id: string; x: number; y: number; avatar: Avatar; username: string }[] =
+    [];
   private guests = new Map<string, Phaser.GameObjects.Container>();
   onPosition?: (x: number, y: number) => void;
   constructor() {
@@ -43,6 +45,7 @@ export class IslandScene extends Phaser.Scene {
     this.avatar.setDepth(1500);
     this.placeAvatar(15, 16);
     this.redraw();
+    this.setGuests(this.pendingGuests);
     this.cameras.main.centerOn(0, 350);
     this.fit();
     this.scale.on('resize', this.fit, this);
@@ -110,6 +113,10 @@ export class IslandScene extends Phaser.Scene {
   }
   zoom(f: number) {
     this.cameras.main.setZoom(Phaser.Math.Clamp(this.cameras.main.zoom * f, 0.4, 2.5));
+  }
+  focusTile(x: number, y: number) {
+    const p = iso(x, y);
+    this.cameras.main.centerOn(p.x, p.y);
   }
   center() {
     this.cameras.main.centerOn(0, 350);
@@ -525,7 +532,8 @@ export class IslandScene extends Phaser.Scene {
     );
   }
   setGuests(guests: { id: string; x: number; y: number; avatar: Avatar; username: string }[]) {
-    if (!this.sys.isActive()) return;
+    this.pendingGuests = guests;
+    if (!this.avatar) return;
     const active = new Set(guests.map((g) => g.id));
     for (const [id, c] of this.guests)
       if (!active.has(id)) {
@@ -534,6 +542,12 @@ export class IslandScene extends Phaser.Scene {
       }
     for (const p of guests) {
       let c = this.guests.get(p.id);
+      const avatarKey = JSON.stringify(p.avatar) + p.username;
+      if (c && c.getData('avatarKey') !== avatarKey) {
+        c.destroy();
+        this.guests.delete(p.id);
+        c = undefined;
+      }
       if (!c) {
         c = this.makeAvatar(p.avatar).setDepth(1499);
         c.add(
@@ -546,6 +560,7 @@ export class IslandScene extends Phaser.Scene {
             })
             .setOrigin(0.5),
         );
+        c.setData('avatarKey', avatarKey);
         this.guests.set(p.id, c);
       }
       const pt = iso(p.x, p.y);

@@ -19,7 +19,6 @@ export function Landing({
     [email, setEmail] = useState(''),
     [password, setPassword] = useState(''),
     [username, setUsername] = useState(''),
-    [name, setName] = useState(''),
     [avatar, setAvatar] = useState(DEFAULT_AVATAR),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
@@ -34,7 +33,7 @@ export function Landing({
         await authService.updatePassword(password);
         onRecovered?.();
       } else if (onboarding) {
-        await islandService.create(username, name, avatar);
+        await islandService.create(username, avatar);
         onReady();
       } else if (mode === 'reset') {
         await authService.reset(email);
@@ -43,7 +42,7 @@ export function Landing({
         const d = await authService.signUp(email, password);
         setMessage(
           d.session
-            ? 'Compte créé. Préparation de votre île…'
+            ? 'Compte créé. Arrivée sur l’île commune…'
             : 'Consultez votre boîte mail pour confirmer votre inscription.',
         );
       } else await authService.signIn(email, password);
@@ -89,15 +88,16 @@ export function Landing({
             'Votre histoire commence ici.'
           ) : (
             <>
-              Votre île.
-              <br />À votre rythme.
+              Une île, ensemble.
+              <br />
+              Un village à partager.
             </>
           )}
         </h1>
         <p className="muted">
           {onboarding
-            ? 'Choisissez votre personnage, nommez votre petit paradis et faites-en un village plein de vie.'
-            : 'Plantez un peu de bonheur, bâtissez votre village et retrouvez vos amis sous les palmiers.'}
+            ? 'Choisissez votre pseudonyme et votre avatar pour rejoindre les autres habitants sur Beuteu Island.'
+            : 'Plantez un peu de bonheur, construisez ensemble le village et retrouvez vos amis sous les palmiers.'}
         </p>
         {!configured ? (
           <div className="setup-card">
@@ -157,17 +157,6 @@ export function Landing({
                   />
                   <small>3 à 20 lettres, chiffres ou tirets bas. Unique parmi les joueurs.</small>
                 </label>
-                <label>
-                  Nom de l’île
-                  <input
-                    required
-                    minLength={2}
-                    maxLength={30}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Ex. Île des Alizés"
-                  />
-                </label>
                 <AvatarEditor value={avatar} onChange={setAvatar} />
               </>
             ) : (
@@ -217,12 +206,12 @@ export function Landing({
                 : recovery
                   ? 'Enregistrer le mot de passe'
                   : onboarding
-                    ? 'Découvrir mon île'
+                    ? 'Rejoindre l’île commune'
                     : mode === 'signup'
                       ? 'Créer mon compte'
                       : mode === 'reset'
                         ? 'Recevoir le lien'
-                        : 'Retrouver mon île'}
+                        : 'Rejoindre le village'}
               <ArrowRight size={18} />
             </button>
             {!onboarding && !recovery && (
