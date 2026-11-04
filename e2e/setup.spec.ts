@@ -9,6 +9,6 @@ test('explique la configuration manquante sans simuler un jeu', async ({ page })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
-  await expect(page.getByRole('button', { name: 'Retrouver mon île' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Rejoindre le village' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

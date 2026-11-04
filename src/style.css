@@ -2048,3 +2048,14 @@ legend {
     scroll-behavior: auto !important;
   }
 }
+
+select {
+  width: 100%;
+  padding: 10px;
+  margin: 8px 0;
+  border: 1px solid #dce2d7;
+  border-radius: 9px;
+  background: #fffef9;
+  color: #294e40;
+  font: inherit;
+}

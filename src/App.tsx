@@ -70,7 +70,6 @@ export default function App() {
     [world, setWorld] = useState<World | null>(null),
     [loaded, setLoaded] = useState(false),
     [loadError, setLoadError] = useState(''),
-    [owner, setOwner] = useState<string | undefined>(),
     [panel, setPanel] = useState<Panel>(null),
     [selection, setSelection] = useState<Selection | null>(null),
     [placement, setPlacement] = useState<Placement>(null),
@@ -91,7 +90,6 @@ export default function App() {
     operation = useRef(false),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     lastTrack = useRef(0);
-  const visiting = Boolean(owner && owner !== session?.user.id);
   const notify = useCallback((s: string) => {
     setToast(s);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -129,7 +127,7 @@ export default function App() {
     const generation = ++syncGeneration.current;
     const start = Date.now();
     try {
-      const w = await islandService.load(owner);
+      const w = await islandService.load();
       if (generation !== syncGeneration.current) return;
       setWorld(w);
       if (w) setOffset(Date.parse(w.server_time) - (start + Date.now()) / 2);
@@ -141,7 +139,7 @@ export default function App() {
         setLoaded(true);
       }
     }
-  }, [session?.user.id, owner]);
+  }, [session?.user.id]);
   useEffect(() => {
     setLoaded(false);
     setWorld(null);
@@ -191,11 +189,11 @@ export default function App() {
   const myAvatar = useRef<Avatar | null>(null);
   const myUsername = useRef('');
   useEffect(() => {
-    if (world && !visiting) {
+    if (world) {
       myAvatar.current = world.avatar;
       myUsername.current = world.profile.username;
     }
-  }, [world, visiting]);
+  }, [world]);
   useEffect(() => {
     if (!world || !session) return;
     let alive = true;
@@ -213,7 +211,15 @@ export default function App() {
       });
     channel
       .on('presence', { event: 'sync' }, () => {
-        if (alive) setOnline(Object.values(channel.presenceState<Presence>()).flat());
+        if (alive)
+          setOnline([
+            ...new globalThis.Map(
+              Object.values(channel.presenceState<Presence>())
+                .flat()
+                .filter((p) => p.id && p.avatar && Number.isFinite(p.x) && Number.isFinite(p.y))
+                .map((p) => [p.id, p]),
+            ).values(),
+          ]);
       })
       .subscribe((s) => {
         if (s === 'SUBSCRIBED') void track();
@@ -226,9 +232,27 @@ export default function App() {
       void client().removeChannel(channel);
     };
   }, [world?.island.id, session?.user.id]);
+  useEffect(() => {
+    if (!world || !session) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => void load(), 100);
+    };
+    const channel = client()
+      .channel('shared-world-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'shared_world' }, refresh)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') refresh();
+      });
+    return () => {
+      clearTimeout(timer);
+      void client().removeChannel(channel);
+    };
+  }, [world?.island.id, session?.user.id, load]);
   const onPosition = (x: number, y: number) => {
     position.current = { x, y };
-    if (Date.now() - lastTrack.current < 300) return;
+
     lastTrack.current = Date.now();
     if (world && session)
       void channelRef.current?.track({
@@ -242,7 +266,7 @@ export default function App() {
   };
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
-    if (!world || visiting) return;
+    if (!world) return;
     const mature = world.plantations.filter((p) => cropState(p.planted_at, now) === 'mature');
     for (const p of mature)
       if (!previousMature.current.has(p.plot_id)) {
@@ -251,7 +275,7 @@ export default function App() {
       }
     for (const id of previousMature.current)
       if (!mature.some((p) => p.plot_id === id)) previousMature.current.delete(id);
-  }, [now, world, visiting]);
+  }, [now, world]);
   useEffect(() => {
     const escape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -263,7 +287,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', escape);
   }, []);
   async function perform(fn: () => Promise<unknown>, success: string, close = false) {
-    if (operation.current || visiting || !network) return;
+    if (operation.current || !network) return;
     operation.current = true;
     setBusy(true);
     try {
@@ -298,21 +322,23 @@ export default function App() {
     );
   }
   function startBuild(kind: BuildingKind, movingId?: string) {
-    if (visiting) return;
     setPlacement({ kind, movingId });
     setPanel(null);
     setSelection(null);
     notify('Choisissez une case libre. Vert : disponible, rouge : occupée.');
   }
-  async function visit(p: Player) {
-    setPanel(null);
-    setOwner(p.id === session?.user.id ? undefined : p.id);
+  function locatePlayer(p: Player) {
+    const presence = online.find((v) => v.id === p.id);
+    if (presence) {
+      sceneRef.current?.focusTile(presence.x, presence.y);
+      setPanel(null);
+    } else notify(`${p.username} n’est pas connecté pour le moment.`);
   }
   async function signOut() {
     try {
       await authService.signOut();
       setWorld(null);
-      setOwner(undefined);
+
       setLoaded(false);
       setPanel(null);
     } catch (e) {
@@ -353,15 +379,7 @@ export default function App() {
         <button onClick={() => void signOut()}>Se déconnecter</button>
       </div>
     );
-  if (!world)
-    return owner ? (
-      <div className="error-screen">
-        <h1>Île introuvable</h1>
-        <button onClick={() => setOwner(undefined)}>Rentrer chez moi</button>
-      </div>
-    ) : (
-      <Landing onboarding onReady={() => void load()} />
-    );
+  if (!world) return <Landing onboarding onReady={() => void load()} />;
   const tree =
     selection?.type === 'tree' ? world.trees.find((t) => t.id === selection.id) : undefined;
   const plot =
@@ -371,7 +389,7 @@ export default function App() {
   const building =
     selection?.type === 'building' ? world.buildings.find((b) => b.id === selection.id) : undefined;
   const tutorial = [
-    'Bienvenue sur ton île !',
+    'Bienvenue sur notre île commune !',
     'Coupe ton premier arbre pour récolter du bois.',
     'Vends ton bois au marché pour gagner des pièces.',
     'Plante ta première culture dans une parcelle.',
@@ -382,8 +400,8 @@ export default function App() {
     farm: 'Le jardin des possibles',
     market: 'Le marché de l’île',
     inventory: 'Votre sac à trésors',
-    community: 'Les îles voisines',
-    leaderboard: 'Les villages à l’honneur',
+    community: 'Les habitants de l’île',
+    leaderboard: 'Les bâtisseurs à l’honneur',
     profile: 'Votre petit personnage',
     actions: 'Explorer votre île',
   };
@@ -392,7 +410,7 @@ export default function App() {
       <Suspense fallback={<div className="loading-screen">Préparation de la carte…</div>}>
         <GameCanvas
           world={world}
-          playerAvatar={visiting ? (myAvatar.current ?? world.avatar) : world.avatar}
+          playerAvatar={world.avatar}
           placement={placement}
           offset={offset}
           onSelect={setSelection}
@@ -408,14 +426,12 @@ export default function App() {
             <Leaf size={22} />
           </span>
           <div>
-            <span className="eyebrow">
-              {visiting ? 'EN VISITE CHEZ ' + world.profile.username : 'VOTRE PETIT PARADIS'}
-            </span>
+            <span className="eyebrow">{'NOTRE ÎLE COMMUNE'}</span>
             <h1>{world.island.name}</h1>
           </div>
         </div>
         <div className="stats">
-          {!visiting && (
+          {
             <>
               <div className="stat gold">
                 <span>
@@ -436,7 +452,7 @@ export default function App() {
                 </div>
               </div>
             </>
-          )}
+          }
           <div className="stat score">
             <span>
               <Star size={20} />
@@ -453,10 +469,6 @@ export default function App() {
           className="profile-button"
           aria-label="Personnaliser mon avatar"
           onClick={() => {
-            if (visiting) {
-              setOwner(undefined);
-              return;
-            }
             setDraftAvatar(world.avatar);
             setPanel('profile');
           }}
@@ -481,66 +493,52 @@ export default function App() {
         </div>
       )}
       <div className="map-label">
-        <span className="live-dot" /> Île{' '}
-        {visiting ? 'de ' + world.profile.username : 'personnelle'} <span>·</span> 30 × 30 cases
+        <span className="live-dot" /> Île commune <span>·</span> 30 × 30 cases
       </div>
-      {visiting ? (
-        <div className="visit-banner">
-          <Users size={18} /> Une balade chez {world.profile.username}{' '}
-          <button onClick={() => setOwner(undefined)}>
-            <ArrowLeft size={16} /> Rentrer chez moi
-          </button>
-          <small>Cette île est en lecture seule.</small>
-        </div>
-      ) : (
-        tutorial &&
-        !placement && (
-          <section className="tutorial">
-            <div className="tutorial-icon">
-              <Sprout size={24} />
+      {tutorial && !placement && (
+        <section className="tutorial">
+          <div className="tutorial-icon">
+            <Sprout size={24} />
+          </div>
+          <div>
+            <span className="eyebrow">VOS PREMIERS PAS · {world.profile.tutorial_step + 1}/5</span>
+            <h3>{tutorial}</h3>
+            <p>
+              {world.profile.tutorial_step === 0
+                ? '12 arbres, 4 parcelles et mille possibilités. À vous de jouer.'
+                : 'Chaque petite action fait grandir notre village.'}
+            </p>
+            <div className="tutorial-dots">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <span key={i} className={i <= world.profile.tutorial_step ? 'done' : ''} />
+              ))}
             </div>
-            <div>
-              <span className="eyebrow">
-                VOS PREMIERS PAS · {world.profile.tutorial_step + 1}/5
-              </span>
-              <h3>{tutorial}</h3>
-              <p>
-                {world.profile.tutorial_step === 0
-                  ? '12 arbres, 4 parcelles et mille possibilités. À vous de jouer.'
-                  : 'Chaque petite action fait grandir votre village.'}
-              </p>
-              <div className="tutorial-dots">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <span key={i} className={i <= world.profile.tutorial_step ? 'done' : ''} />
-                ))}
-              </div>
-              <div className="tutorial-buttons">
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={() =>
-                    void perform(() => profileService.tutorial(5), 'À vous l’aventure !')
-                  }
-                >
-                  Passer
-                </button>
-                <button
-                  className="primary small"
-                  disabled={busy}
-                  onClick={() =>
-                    void perform(
-                      () => profileService.tutorial(world.profile.tutorial_step + 1),
-                      'À vous de jouer !',
-                    )
-                  }
-                >
-                  {world.profile.tutorial_step === 0 ? 'C’est parti' : 'Étape suivante'}
-                  <ArrowRight size={14} />
-                </button>
-              </div>
+            <div className="tutorial-buttons">
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() =>
+                  void perform(() => profileService.tutorial(5), 'À vous l’aventure !')
+                }
+              >
+                Passer
+              </button>
+              <button
+                className="primary small"
+                disabled={busy}
+                onClick={() =>
+                  void perform(
+                    () => profileService.tutorial(world.profile.tutorial_step + 1),
+                    'À vous de jouer !',
+                  )
+                }
+              >
+                {world.profile.tutorial_step === 0 ? 'C’est parti' : 'Étape suivante'}
+                <ArrowRight size={14} />
+              </button>
             </div>
-          </section>
-        )
+          </div>
+        </section>
       )}
       <div className="map-tools">
         <button aria-label="Zoom avant" onClick={() => sceneRef.current?.zoom(1.2)}>
@@ -603,7 +601,7 @@ export default function App() {
                   <p>5 bois à récolter · 20 pièces au marché</p>
                   <button
                     className="primary"
-                    disabled={busy || visiting || !network}
+                    disabled={busy || !network}
                     onClick={() =>
                       void perform(
                         () => {
@@ -647,7 +645,7 @@ export default function App() {
                   {state === 'mature' && (
                     <button
                       className="primary"
-                      disabled={busy || visiting || !network}
+                      disabled={busy || !network}
                       onClick={() =>
                         void perform(
                           () => agricultureService.harvest(plot.id),
@@ -662,7 +660,7 @@ export default function App() {
                   {state === 'withered' && (
                     <button
                       className="primary"
-                      disabled={busy || visiting || !network}
+                      disabled={busy || !network}
                       onClick={() =>
                         void perform(
                           () => agricultureService.clear(plot.id),
@@ -682,7 +680,7 @@ export default function App() {
                     {Object.entries(CROPS).map(([key, c]) => (
                       <button
                         key={key}
-                        disabled={busy || visiting || !network || world.island.gold < c.seed}
+                        disabled={busy || !network || world.island.gold < c.seed}
                         onClick={() =>
                           void perform(
                             () => agricultureService.plant(plot.id, key),
@@ -707,11 +705,46 @@ export default function App() {
               <span className="object-emoji">{BUILDINGS[building.kind].icon}</span>
               <h3>{BUILDINGS[building.kind].name}</h3>
               <p>
+                Construit par{' '}
+                {players.find((p) => p.id === building.created_by)?.username ??
+                  'un ancien habitant'}
+              </p>
+              {['cottage', 'house'].includes(building.kind) && (
+                <label>
+                  Maison attribuée à
+                  <select
+                    aria-label="Attribuer cette maison"
+                    value={building.assigned_to ?? ''}
+                    disabled={
+                      busy ||
+                      !network ||
+                      (building.created_by !== session.user.id && !world.profile.is_admin)
+                    }
+                    onChange={(e) =>
+                      void perform(
+                        () => constructionService.assign(building.id, e.target.value || null),
+                        'Attribution enregistrée !',
+                      )
+                    }
+                  >
+                    <option value="">Non attribuée</option>
+                    {players.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.username}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <p>
                 {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
               </p>
               <button
                 className="primary"
-                disabled={visiting || !network}
+                disabled={
+                  !network || (building.created_by !== session.user.id && !world.profile.is_admin)
+                }
                 onClick={() => startBuild(building.kind, building.id)}
               >
                 <Move size={16} />
@@ -719,10 +752,9 @@ export default function App() {
               </button>
             </>
           )}
-          {visiting && <small>Seul le propriétaire peut modifier cette île.</small>}
         </section>
       )}
-      <Chat userId={session.user.id} admin={!visiting && world.profile.is_admin} notify={notify} />
+      <Chat userId={session.user.id} admin={world.profile.is_admin} notify={notify} />
       <div className="bottom-caption">
         <span>
           <Leaf size={13} /> Chaque village commence par une petite graine.
@@ -742,7 +774,6 @@ export default function App() {
         ).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            disabled={visiting && ['build', 'farm', 'market', 'inventory'].includes(key)}
             className={panel === key ? 'active' : ''}
             onClick={() => {
               setPanel(key);
@@ -945,7 +976,7 @@ export default function App() {
             <>
               <p className="muted">
                 {panel === 'community'
-                  ? 'Un archipel de belles rencontres. Visitez les îles, inspirez-vous et dites bonjour.'
+                  ? 'Tous les habitants partagent cette île. Retrouvez les personnes connectées sur la carte.'
                   : 'Chaque maison, chaque jardin compte. Le classement se met à jour après les constructions.'}
               </p>
               <div className="player-list">
@@ -983,8 +1014,8 @@ export default function App() {
                       {p.score}
                       <small> pts</small>
                     </strong>
-                    <button className="secondary" onClick={() => void visit(p)}>
-                      Visiter
+                    <button className="secondary" onClick={() => locatePlayer(p)}>
+                      Retrouver
                       <ArrowRight size={15} />
                     </button>
                   </article>
@@ -1067,7 +1098,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              {placement && !visiting && (
+              {placement && (
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
