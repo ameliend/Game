@@ -1,0 +1,122 @@
+// Shared presentation rules. PostgreSQL's game_rules table is authoritative.
+export const HOURS = 3_600_000;
+export const RULES = {
+  size: 30,
+  initialGold: 100,
+  treeWood: 5,
+  woodPrice: 4,
+  regrowMs: 30 * 60_000,
+  matureMs: 8 * HOURS,
+  witherMs: 12 * HOURS,
+};
+export const CROPS = {
+  carrot: { name: 'Carotte', seed: 5, price: 12, yield: 2, color: 0xee9748, emoji: '🥕' },
+  wheat: { name: 'Blé', seed: 10, price: 18, yield: 2, color: 0xf4ce63, emoji: '🌾' },
+  tomato: { name: 'Tomate', seed: 20, price: 30, yield: 2, color: 0xe76f59, emoji: '🍅' },
+  strawberry: { name: 'Fraise', seed: 35, price: 50, yield: 2, color: 0xe75e83, emoji: '🍓' },
+} as const;
+export const BUILDINGS = {
+  cottage: {
+    name: 'Petite maison',
+    price: 150,
+    points: 10,
+    size: 2,
+    color: 0xe9a164,
+    icon: '🏡',
+    category: 'Habitations',
+  },
+  house: {
+    name: 'Grande maison',
+    price: 400,
+    points: 25,
+    size: 3,
+    color: 0xea7c71,
+    icon: '🏠',
+    category: 'Habitations',
+  },
+  bakery: {
+    name: 'Boulangerie',
+    price: 300,
+    points: 20,
+    size: 2,
+    color: 0xe7b26b,
+    icon: '🥐',
+    category: 'Commerces',
+  },
+  school: {
+    name: 'École',
+    price: 600,
+    points: 40,
+    size: 3,
+    color: 0xe4bc6a,
+    icon: '🏫',
+    category: 'Services',
+  },
+  supermarket: {
+    name: 'Supermarché',
+    price: 800,
+    points: 20,
+    size: 3,
+    color: 0x79af94,
+    icon: '🛒',
+    category: 'Commerces',
+  },
+  townhall: {
+    name: 'Mairie',
+    price: 1000,
+    points: 70,
+    size: 3,
+    color: 0x86a2bc,
+    icon: '🏛️',
+    category: 'Services',
+  },
+  restaurant: {
+    name: 'Restaurant',
+    price: 500,
+    points: 20,
+    size: 2,
+    color: 0xd9847d,
+    icon: '🍽️',
+    category: 'Commerces',
+  },
+  hospital: {
+    name: 'Hôpital',
+    price: 1200,
+    points: 60,
+    size: 3,
+    color: 0xb3c8c5,
+    icon: '🏥',
+    category: 'Services',
+  },
+  park: {
+    name: 'Parc public',
+    price: 250,
+    points: 5,
+    size: 2,
+    color: 0x7caf77,
+    icon: '🌳',
+    category: 'Décorations',
+  },
+  fountain: {
+    name: 'Fontaine',
+    price: 100,
+    points: 5,
+    size: 1,
+    color: 0x7fb7c9,
+    icon: '⛲',
+    category: 'Décorations',
+  },
+  road: {
+    name: 'Route',
+    price: 10,
+    points: 0,
+    size: 1,
+    color: 0xc8b594,
+    icon: '🪨',
+    category: 'Décorations',
+  },
+} as const;
+export type CropKind = keyof typeof CROPS;
+export type BuildingKind = keyof typeof BUILDINGS;
+export const SKINS = ['#f3d0a5', '#dba77c', '#b87c52', '#794d38', '#51372b'];
+export const HAIRS = ['#dfba65', '#754d32', '#272b2a', '#ad5734', '#b6b9b0'];
