@@ -16,7 +16,13 @@ export function countdown(ms: number) {
     .join(':');
 }
 export function land(x: number, y: number) {
-  return x >= 0 && y >= 0 && x < 30 && y < 30 && (x - 14.5) ** 2 / 169 + (y - 14.5) ** 2 / 144 <= 1;
+  return (
+    x >= 0 &&
+    y >= 0 &&
+    x < RULES.size &&
+    y < RULES.size &&
+    (x - 29.5) ** 2 / 676 + (y - 29.5) ** 2 / 576 <= 1
+  );
 }
 export function buildable(world: World, x: number, y: number, size: number, movingId?: string) {
   for (let a = x; a < x + size; a++)

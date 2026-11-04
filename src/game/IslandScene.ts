@@ -21,7 +21,7 @@ export class IslandScene extends Phaser.Scene {
   private ghost!: Phaser.GameObjects.Graphics;
   private avatar!: Phaser.GameObjects.Container;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private pos = { x: 15, y: 16 };
+  private pos = { ...RULES.spawn };
   private walking = false;
   private lastKey = 0;
   private dragStart?: { x: number; y: number; cx: number; cy: number };
@@ -43,10 +43,10 @@ export class IslandScene extends Phaser.Scene {
     this.drawTerrain();
     this.avatar = this.makeAvatar(this.playerAvatar ?? this.world.avatar);
     this.avatar.setDepth(1500);
-    this.placeAvatar(15, 16);
+    this.placeAvatar(RULES.spawn.x, RULES.spawn.y);
     this.redraw();
     this.setGuests(this.pendingGuests);
-    this.cameras.main.centerOn(0, 350);
+    this.cameras.main.centerOn(0, ((RULES.size - 1) * H) / 2);
     this.fit();
     this.scale.on('resize', this.fit, this);
     this.input.addPointer(2);
@@ -105,21 +105,21 @@ export class IslandScene extends Phaser.Scene {
   }
   fit() {
     const z = Phaser.Math.Clamp(
-      Math.min(this.scale.width / 1450, this.scale.height / 900),
-      0.45,
+      Math.min(this.scale.width / 2100, this.scale.height / 1400),
+      0.25,
       1.15,
     );
     this.cameras.main.setZoom(z);
   }
   zoom(f: number) {
-    this.cameras.main.setZoom(Phaser.Math.Clamp(this.cameras.main.zoom * f, 0.4, 2.5));
+    this.cameras.main.setZoom(Phaser.Math.Clamp(this.cameras.main.zoom * f, 0.25, 2.5));
   }
   focusTile(x: number, y: number) {
     const p = iso(x, y);
     this.cameras.main.centerOn(p.x, p.y);
   }
   center() {
-    this.cameras.main.centerOn(0, 350);
+    this.cameras.main.centerOn(0, ((RULES.size - 1) * H) / 2);
     this.fit();
   }
   polygon(g: Phaser.GameObjects.Graphics, pts: number[], color: number, alpha = 1) {
@@ -152,8 +152,8 @@ export class IslandScene extends Phaser.Scene {
       g.lineStyle(1, 0xd8f5ed, 0.22);
       g.strokeEllipse(x, y, 18 + (i % 4) * 12, 5);
     }
-    for (let y = 0; y < 30; y++)
-      for (let x = 0; x < 30; x++)
+    for (let y = 0; y < RULES.size; y++)
+      for (let x = 0; x < RULES.size; x++)
         if (land(x, y)) {
           const p = iso(x, y),
             edge =
@@ -180,9 +180,9 @@ export class IslandScene extends Phaser.Scene {
         }
     // Decorative boulders sit outside the playable land.
     for (const [x, y] of [
-      [3, 20],
-      [25, 8],
-      [24, 24],
+      [2, 25],
+      [52, 9],
+      [48, 50],
     ]) {
       const p = iso(x, y);
       g.fillStyle(0x5eaaa9, 0.25);
@@ -194,7 +194,7 @@ export class IslandScene extends Phaser.Scene {
     }
     // A small dock on the south shore.
     for (let i = 0; i < 5; i++) {
-      const p = iso(14 + i, 27);
+      const p = iso(29 + i, 54);
       this.diamond(g, p.x, p.y, 44, 23, 0xa77b50);
       g.lineStyle(1, 0x795a42);
       g.lineBetween(p.x - 18, p.y, p.x + 2, p.y + 9);
@@ -443,7 +443,7 @@ export class IslandScene extends Phaser.Scene {
       if (changed) {
         this.tweens.killTweensOf(this.avatar);
         this.walking = false;
-        this.placeAvatar(15, 16);
+        this.placeAvatar(RULES.spawn.x, RULES.spawn.y);
         this.center();
       }
     }
