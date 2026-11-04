@@ -35,7 +35,7 @@ describe('Agriculture : limites exactes', () => {
 describe('Grille de construction et déplacements', () => {
   it('refuse l’eau et les limites', () => {
     expect(land(0, 0)).toBe(false);
-    expect(buildable(world, 29, 29, 3)).toBe(false);
+    expect(buildable(world, RULES.size - 1, RULES.size - 1, 3)).toBe(false);
     expect(buildable(world, -1, 15, 1)).toBe(false);
   });
   it('refuse arbres, parcelles et chevauchement partiel', () => {

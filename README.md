@@ -18,12 +18,13 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, exécutez **uniquement** `supabase/migrations/202611040002_shared_island.sql` si la première migration a déjà été appliquée.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, exécutez uniquement `supabase/migrations/202611040003_expand_daily_trees.sql`. Si vous êtes encore sur les îles individuelles, appliquez d’abord la migration 2, puis la 3.
 
-Sur une base neuve, exécutez les deux migrations, dans l’ordre :
+Sur une base neuve, exécutez les trois migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
+3. `202611040003_expand_daily_trees.sql`
 
 La migration 2 :
 
@@ -64,7 +65,7 @@ Les prix et durées affichés sont dans `src/config/game.ts`. La table serveur `
 
 Clic/toucher pour marcher ; flèches/ZQSD/WASD ; glisser pour déplacer la caméra ; molette ou pincement à deux doigts pour zoomer. Boutons +/− et boussole à droite. Échap annule le placement.
 
-L’icône carte ouvre Actions : arbres, parcelles et bâtiments sont accessibles par boutons au clavier. Pour placer un bâtiment au clavier, choisissez-le puis ouvrez Actions et renseignez colonne/ligne entre 0 et 29. Les modales natives gèrent le focus et la fermeture clavier. Les graphismes de la carte sont dessinés localement, sans images externes.
+L’icône carte ouvre Actions : arbres, parcelles et bâtiments sont accessibles par boutons au clavier. Pour placer un bâtiment au clavier, choisissez-le puis ouvrez Actions et renseignez colonne/ligne entre 0 et 59. Les modales natives gèrent le focus et la fermeture clavier. Les graphismes de la carte sont dessinés localement, sans images externes.
 
 Le chat conserve 100 messages, utilise Realtime, limite à 500 caractères et impose 2 s entre envois. Le texte est échappé par React. Les auteurs peuvent supprimer leurs messages, les autres les signaler ; un administrateur peut supprimer tout message. Les signalements sont consultables dans `chat_reports` par un opérateur SQL autorisé.
 
@@ -95,3 +96,25 @@ PLAYWRIGHT_CHROMIUM_PATH=/usr/bin/chromium npm run test:e2e
 Les tests isolés doivent être lancés sans variables Supabase (le test d’accueil attend l’état non configuré) : `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= npm test`. Idem pour les tests navigateur. PGlite exécute PostgreSQL et PL/pgSQL avec un contexte d’identité de test, sans compte de production. Les tests historiques couvrent la première migration ; `shared-world.test.ts` teste la mise à niveau, deux utilisateurs, les collisions, la conservation des données, la ressource commune et les autorisations d’attribution. Cela ne remplace pas un test de concurrence sur des connexions PostgreSQL séparées ou une validation Realtime hébergée.
 
 Après migration et déploiement, ouvrez deux navigateurs avec deux comptes : vérifiez qu’ils arrivent sur la même carte, voient leurs déplacements, reçoivent les constructions et attributions sans recharger, et que le constructeur peut attribuer une maison au second compte. Essayez de la réattribuer avec le second compte : le serveur doit refuser. Vérifiez aussi chat, reconnexion, récoltes et persistance.
+
+## Terrain 60 × 60 et apparition quotidienne
+
+La migration 3 double les dimensions de la grille (30 × 30 → 60 × 60, soit quatre fois la surface de grille). Les arbres, parcelles et bâtiments existants sont décalés ensemble de +15 en colonne et ligne : leur disposition relative, leurs IDs, attributions et dates de plantation sont conservés. Le point d’arrivée et le cadrage de la caméra suivent le nouveau centre.
+
+Chaque jour civil selon **Europe/Paris**, **10 nouveaux arbres** apparaissent sur des cases aléatoires de terre, sans arbre, parcelle ni construction, et hors du point d’arrivée. Les arbres existants et leur repousse après coupe sont conservés. Si moins de 10 cases sont disponibles, le serveur crée seulement ceux qui peuvent tenir et journalise le nombre réel dans `tree_spawn_days`. Un terrain plein ne détruit rien.
+
+Le serveur, jamais l’horloge du téléphone, choisit le jour et les positions. Une même journée n’est traitée qu’une seule fois pour l’île entière. Les jours manqués sont rattrapés à la prochaine connexion/action ; aucune quantité ou date ne peut être envoyée par le navigateur. La migration ajoute immédiatement le lot du jour.
+
+Pour que l’apparition se fasse aussi **sans personne connecté**, activez **Supabase Cron / pg_cron** avant d’exécuter la migration 3. Si Cron est disponible, elle enregistre automatiquement le job `island-daily-trees` toutes les 5 minutes (le générateur ne fait rien quand le jour a déjà été traité). Si vous activez Cron plus tard, exécutez dans SQL Editor :
+
+```sql
+select cron.schedule(
+  'island-daily-trees',
+  '*/5 * * * *',
+  'select public.ensure_daily_trees();'
+);
+```
+
+Le lot apparaît au premier passage suivant minuit à Paris, au plus tard 5 minutes après si Cron fonctionne. Vérifiez le job dans Supabase Cron et son historique d’exécution. Sans Cron, l’apparition est faite au premier chargement de la journée et les jours d’absence sont rattrapés. Le générateur prend le même verrou serveur que les constructions, pour éviter une apparition concurrente sur une case qui vient d’être bâtie.
+
+La migration 3 corrige aussi `Update requires a WHERE clause` : la révision de l’île est maintenant mise à jour avec `WHERE singleton=true`. Cela rétablit le bouton « C’est parti » et les autres actions sur les projets où la protection contre les mises à jour globales est activée. La correction est serveur ; un redéploiement du frontend seul ne suffit pas.

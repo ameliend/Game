@@ -81,11 +81,11 @@ export default function App() {
     [offset, setOffset] = useState(0),
     [category, setCategory] = useState('Tous'),
     [draftAvatar, setDraftAvatar] = useState<Avatar | null>(null),
-    [tile, setTile] = useState({ x: 15, y: 15 }),
+    [tile, setTile] = useState({ x: 30, y: 30 }),
     [network, setNetwork] = useState(navigator.onLine);
   const sceneRef = useRef<IslandScene | null>(null),
     channelRef = useRef<RealtimeChannel | null>(null),
-    position = useRef({ x: 15, y: 16 }),
+    position = useRef({ ...RULES.spawn }),
     syncGeneration = useRef(0),
     operation = useRef(false),
     toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
@@ -493,7 +493,7 @@ export default function App() {
         </div>
       )}
       <div className="map-label">
-        <span className="live-dot" /> Île commune <span>·</span> 30 × 30 cases
+        <span className="live-dot" /> Île commune <span>·</span> {RULES.size} × {RULES.size} cases
       </div>
       {tutorial && !placement && (
         <section className="tutorial">
@@ -505,7 +505,7 @@ export default function App() {
             <h3>{tutorial}</h3>
             <p>
               {world.profile.tutorial_step === 0
-                ? '12 arbres, 4 parcelles et mille possibilités. À vous de jouer.'
+                ? 'Une île commune, 10 nouveaux arbres par jour et mille possibilités.'
                 : 'Chaque petite action fait grandir notre village.'}
             </p>
             <div className="tutorial-dots">
@@ -1112,7 +1112,7 @@ export default function App() {
                       <input
                         type="number"
                         min={0}
-                        max={29}
+                        max={RULES.size - 1}
                         required
                         value={tile.x}
                         onChange={(e) => setTile({ ...tile, x: Number(e.target.value) })}
@@ -1123,7 +1123,7 @@ export default function App() {
                       <input
                         type="number"
                         min={0}
-                        max={29}
+                        max={RULES.size - 1}
                         required
                         value={tile.y}
                         onChange={(e) => setTile({ ...tile, y: Number(e.target.value) })}
