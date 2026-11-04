@@ -112,7 +112,12 @@ describe('Migration et règles canoniques', () => {
       initial_gold: RULES.initialGold,
     });
     for (const [k, v] of Object.entries(BUILDINGS))
-      expect(rules.buildings[k]).toEqual({ price: v.price, points: v.points, size: v.size });
+      // Migration 1 predates the road price change in migration 5.
+      expect(rules.buildings[k]).toEqual({
+        price: k === 'road' ? 10 : v.price,
+        points: v.points,
+        size: v.size,
+      });
     for (const [k, v] of Object.entries(CROPS))
       expect(rules.crops[k]).toEqual({ seed: v.seed, price: v.price, yield: v.yield });
   });

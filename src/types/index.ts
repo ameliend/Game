@@ -13,6 +13,7 @@ export type Building = {
   size: number;
   created_by?: string | null;
   assigned_to?: string | null;
+  assigned_at?: string | null;
 };
 export type World = {
   island: Island;

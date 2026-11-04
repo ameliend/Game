@@ -23,7 +23,7 @@ export const agricultureService = {
 export const constructionService = {
   place: (kind: string, x: number, y: number) => action('build', { kind, x, y }),
   move: (id: string, x: number, y: number) => action('move', { id, x, y }),
-  assign: (id: string, userId: string | null) => action('assign', { id, user_id: userId }),
+  assign: (id: string, userId: string) => action('assign', { id, user_id: userId }),
 };
 export const profileService = {
   avatar: (avatar: Avatar) => action('avatar', avatar),
