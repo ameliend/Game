@@ -35,6 +35,10 @@ test('Phaser affiche la carte, sélectionne, déplace et prévisualise', async (
   await page.mouse.move(build.x, build.y);
   await click(build.x, build.y);
   await expect(page.getByTestId('selection')).toHaveText('place:30,30');
+  await page.getByRole('button', { name: 'Parcelle test' }).click();
+  const farm = await coords(page, 32, 30);
+  await click(farm.x, farm.y);
+  await expect(page.getByTestId('selection')).toHaveText('place:32,30');
   await page.screenshot({ path: info.outputPath('map.png'), fullPage: true });
   expect(errors).toEqual([]);
 });

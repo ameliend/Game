@@ -122,3 +122,12 @@ export type CropKind = keyof typeof CROPS;
 export type BuildingKind = keyof typeof BUILDINGS;
 export const SKINS = ['#f3d0a5', '#dba77c', '#b87c52', '#794d38', '#51372b'];
 export const HAIRS = ['#dfba65', '#754d32', '#272b2a', '#ad5734', '#b6b9b0'];
+
+// Placement metadata is shared by the map preview and accessible coordinate form.
+export const FARM_PLOT = {
+  name: 'Parcelle cultivable',
+  price: 25,
+  size: 1,
+  color: 0x8c6649,
+} as const;
+export const PLACEABLES = { ...BUILDINGS, farm_plot: FARM_PLOT };

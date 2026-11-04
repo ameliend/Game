@@ -15,6 +15,7 @@ export const economyService = {
   sell: (item: string, quantity: number) => action('sell', { item, quantity }),
 };
 export const agricultureService = {
+  addPlot: (x: number, y: number) => action('add_plot', { x, y }),
   plant: (id: number, crop: string) => action('plant', { id, crop }),
   harvest: (id: number) => action('harvest', { id }),
   clear: (id: number) => action('clear', { id }),

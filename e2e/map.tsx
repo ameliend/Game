@@ -20,13 +20,13 @@ function Harness() {
   const ref = useRef<IslandScene | null>(null);
   const [selection, setSelection] = useState(''),
     [pos, setPos] = useState('30,31'),
-    [place, setPlace] = useState(false);
+    [place, setPlace] = useState<'cottage' | 'farm_plot' | null>(null);
   (window as any).scene = ref;
   return (
     <div className="game-shell">
       <GameCanvas
         world={world}
-        placement={place ? { kind: 'cottage' } : null}
+        placement={place ? { kind: place } : null}
         offset={0}
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
         onPlace={(x, y) => setSelection('place:' + x + ',' + y)}
@@ -37,7 +37,8 @@ function Harness() {
       <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'white', padding: 10 }}>
         <output data-testid="selection">{selection}</output>
         <output data-testid="position">{pos}</output>
-        <button onClick={() => setPlace(!place)}>Construction test</button>
+        <button onClick={() => setPlace(place ? null : 'cottage')}>Construction test</button>
+        <button onClick={() => setPlace('farm_plot')}>Parcelle test</button>
       </div>
     </div>
   );
