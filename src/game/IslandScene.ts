@@ -51,7 +51,9 @@ export class IslandScene extends Phaser.Scene {
     this.scale.on('resize', this.fit, this);
     this.input.addPointer(2);
     this.input.keyboard?.disableGlobalCapture();
-    this.keys = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT,Z,Q,S,D,W,A,ESC') as Record<
+    // Phaser's default capture calls preventDefault on these letters globally.
+    // Observe movement keys without consuming text typed in the React interface.
+    this.keys = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT,Z,Q,S,D,W,A,ESC', false) as Record<
       string,
       Phaser.Input.Keyboard.Key
     >;
@@ -577,8 +579,13 @@ export class IslandScene extends Phaser.Scene {
       this.lastClock = time;
       this.redraw();
     }
-    const active = document.activeElement?.tagName;
-    if (active && ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(active)) return;
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      (active.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(active.tagName))
+    )
+      return;
     if (time - this.lastKey < 180 || this.walking) return;
     const k = this.keys;
     let dx = 0,

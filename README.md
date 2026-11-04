@@ -138,3 +138,5 @@ Pour attribuer une maison encore libre, son constructeur ou un administrateur ch
 Les maisons déjà attribuées au moment de la migration sont verrouillées aussi. `assigned_at` conserve le verrou même si le compte bénéficiaire est supprimé et que la clé étrangère devient nulle ; cette suppression ne remet pas la maison sur le marché. Un compte supprimé est affiché comme un ancien habitant. Le déplacement gratuit par le constructeur ou un administrateur reste autorisé.
 
 Appliquez `202611040005_final_assignments_road_price.sql` dans Supabase SQL Editor après les migrations précédentes, puis déployez le frontend. Un redéploiement frontend seul ne change pas les prix ou permissions serveur.
+
+Les raccourcis de déplacement observent les touches sans bloquer leur saisie dans le chat ou les formulaires. Le personnage reste immobile lorsque le focus se trouve dans un champ de texte, une zone éditable ou un contrôle d’interface. Ce correctif est uniquement frontend et ne nécessite aucune nouvelle migration SQL.
