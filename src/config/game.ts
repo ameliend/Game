@@ -110,7 +110,7 @@ export const BUILDINGS = {
   },
   road: {
     name: 'Route',
-    price: 10,
+    price: 1,
     points: 0,
     size: 1,
     color: 0xc8b594,

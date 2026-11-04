@@ -40,6 +40,7 @@ import type { Avatar, Placement, Player, Selection, World } from './types';
 import { buildable, countdown, cropState } from './utils/rules';
 import { Landing } from './components/Auth';
 import { AvatarEditor, AvatarPortrait } from './components/AvatarEditor';
+import { HouseAssignment } from './components/HouseAssignment';
 import { Modal } from './components/Modal';
 import { Chat } from './components/Chat';
 const GameCanvas = lazy(() => import('./game/GameCanvas').then((m) => ({ default: m.GameCanvas })));
@@ -716,31 +717,22 @@ export default function App() {
                   'un ancien habitant'}
               </p>
               {['cottage', 'house'].includes(building.kind) && (
-                <label>
-                  Maison attribuée à
-                  <select
-                    aria-label="Attribuer cette maison"
-                    value={building.assigned_to ?? ''}
-                    disabled={
-                      busy ||
-                      !network ||
-                      (building.created_by !== session.user.id && !world.profile.is_admin)
-                    }
-                    onChange={(e) =>
-                      void perform(
-                        () => constructionService.assign(building.id, e.target.value || null),
-                        'Attribution enregistrée !',
-                      )
-                    }
-                  >
-                    <option value="">Non attribuée</option>
-                    {players.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.username}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <HouseAssignment
+                  key={building.id}
+                  building={building}
+                  players={players}
+                  disabled={
+                    busy ||
+                    !network ||
+                    (building.created_by !== session.user.id && !world.profile.is_admin)
+                  }
+                  onAssign={(userId) =>
+                    void perform(
+                      () => constructionService.assign(building.id, userId),
+                      'Maison attribuée définitivement !',
+                    )
+                  }
+                />
               )}
 
               <p>

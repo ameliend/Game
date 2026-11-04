@@ -18,14 +18,15 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez la migration 3 si nécessaire, puis `supabase/migrations/202611040004_buy_farm_plots.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2, 3 et 4 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611040005_final_assignments_road_price.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2, 3, 4 et 5 dans cet ordre.
 
-Sur une base neuve, exécutez les quatre migrations, dans l’ordre :
+Sur une base neuve, exécutez les cinq migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
 3. `202611040003_expand_daily_trees.sql`
 4. `202611040004_buy_farm_plots.sql`
+5. `202611040005_final_assignments_road_price.sql`
 
 La migration 2 :
 
@@ -56,7 +57,7 @@ Vérifiez que les tables `chat_messages` et `shared_world` sont dans la publicat
 - Toutes les cultures sont matures à 8 h incluses et fanées à 12 h incluses ; le serveur utilise les timestamps enregistrés, même hors connexion.
 - Les achats sont payés par leur constructeur. Le score affiché en haut est celui de l’île commune. Le classement liste les contributions individuelles des constructeurs.
 - Chaque bâtiment garde son constructeur. **Le constructeur ou un administrateur** peut le déplacer gratuitement.
-- Une petite ou grande maison peut être attribuée à un utilisateur inscrit : sélectionnez-la, puis choisissez l’habitant dans « Maison attribuée à ». L’attribution peut être changée ou retirée par le constructeur ou un administrateur. Elle ne transfère pas le droit de déplacer ou réattribuer le bâtiment. Plusieurs maisons peuvent être attribuées au même habitant.
+- Une petite ou grande maison peut être attribuée à un utilisateur inscrit : sélectionnez-la, puis choisissez l’habitant dans « Maison attribuée à ». **L’attribution est définitive : elle ne peut être changée ni retirée, même par un administrateur.** Elle ne transfère pas le droit de déplacer le bâtiment. Plusieurs maisons peuvent être attribuées au même habitant.
 - La communauté affiche les habitants et leur statut. « Retrouver » centre la caméra sur un habitant connecté. Les avatars/positions sont diffusés par présence Realtime, disparaissent à la déconnexion et ne sont pas persistés.
 - Les mutations de carte produisent une révision transactionnelle Realtime qui déclenche le rechargement des autres clients ; reconnexion et rafraîchissement périodique rattrapent les événements manqués.
 
@@ -127,3 +128,13 @@ Depuis **Agriculture → Ajouter une parcelle**, achetez une case cultivable pou
 Les nouvelles parcelles sont communes, immédiatement sauvegardées et synchronisées entre habitants. On peut y planter les mêmes cultures que sur les parcelles initiales. Aucun plafond n’est ajouté, en dehors des cases disponibles et du solde du joueur. Les arbres quotidiens ne peuvent pas apparaître dessus. Le tarif est dans la règle serveur `farm_plot` et le catalogue frontend `FARM_PLOT`, avec un test de cohérence.
 
 Appliquez `202611040004_buy_farm_plots.sql` dans Supabase SQL Editor, après les migrations précédentes, puis déployez le frontend. L’achat utilise la même transaction sécurisée que les constructions : contrôle du solde, des cases occupées, verrou de carte et identifiant de requête contre les doubles achats. Une erreur annule la création et le débit. Les parcelles existantes sont conservées.
+
+## Attribution définitive et prix des routes
+
+La migration 5 fixe le prix d’une route à **1 pièce par case** (1 × 1). Les routes déjà achetées restent en place ; leurs anciennes transactions ne sont pas modifiées ni remboursées.
+
+Pour attribuer une maison encore libre, son constructeur ou un administrateur choisit un habitant, puis appuie sur **Attribuer définitivement**. L’avertissement d’irréversibilité est affiché avant validation. Après validation, le sélecteur disparaît et le bénéficiaire est affiché avec la mention « Attribution définitive · non modifiable ». Le serveur refuse toute nouvelle attribution ou remise à zéro, y compris venant d’un administrateur. Une requête identique rejouée avec son UUID initial reste idempotente.
+
+Les maisons déjà attribuées au moment de la migration sont verrouillées aussi. `assigned_at` conserve le verrou même si le compte bénéficiaire est supprimé et que la clé étrangère devient nulle ; cette suppression ne remet pas la maison sur le marché. Un compte supprimé est affiché comme un ancien habitant. Le déplacement gratuit par le constructeur ou un administrateur reste autorisé.
+
+Appliquez `202611040005_final_assignments_road_price.sql` dans Supabase SQL Editor après les migrations précédentes, puis déployez le frontend. Un redéploiement frontend seul ne change pas les prix ou permissions serveur.
