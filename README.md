@@ -18,13 +18,14 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, exécutez uniquement `supabase/migrations/202611040003_expand_daily_trees.sql`. Si vous êtes encore sur les îles individuelles, appliquez d’abord la migration 2, puis la 3.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez la migration 3 si nécessaire, puis `supabase/migrations/202611040004_buy_farm_plots.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2, 3 et 4 dans cet ordre.
 
-Sur une base neuve, exécutez les trois migrations, dans l’ordre :
+Sur une base neuve, exécutez les quatre migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
 3. `202611040003_expand_daily_trees.sql`
+4. `202611040004_buy_farm_plots.sql`
 
 La migration 2 :
 
@@ -118,3 +119,11 @@ select cron.schedule(
 Le lot apparaît au premier passage suivant minuit à Paris, au plus tard 5 minutes après si Cron fonctionne. Vérifiez le job dans Supabase Cron et son historique d’exécution. Sans Cron, l’apparition est faite au premier chargement de la journée et les jours d’absence sont rattrapés. Le générateur prend le même verrou serveur que les constructions, pour éviter une apparition concurrente sur une case qui vient d’être bâtie.
 
 La migration 3 corrige aussi `Update requires a WHERE clause` : la révision de l’île est maintenant mise à jour avec `WHERE singleton=true`. Cela rétablit le bouton « C’est parti » et les autres actions sur les projets où la protection contre les mises à jour globales est activée. La correction est serveur ; un redéploiement du frontend seul ne suffit pas.
+
+## Ajouter des parcelles
+
+Depuis **Agriculture → Ajouter une parcelle**, achetez une case cultivable pour **25 pièces** et placez-la sur une case libre (prévisualisation verte/rouge). Le prix n’est débité qu’au placement réussi. Échap ou le bouton d’annulation ne coûte rien. Pour placer au clavier, ouvrez Actions et saisissez les coordonnées comme pour un bâtiment.
+
+Les nouvelles parcelles sont communes, immédiatement sauvegardées et synchronisées entre habitants. On peut y planter les mêmes cultures que sur les parcelles initiales. Aucun plafond n’est ajouté, en dehors des cases disponibles et du solde du joueur. Les arbres quotidiens ne peuvent pas apparaître dessus. Le tarif est dans la règle serveur `farm_plot` et le catalogue frontend `FARM_PLOT`, avec un test de cohérence.
+
+Appliquez `202611040004_buy_farm_plots.sql` dans Supabase SQL Editor, après les migrations précédentes, puis déployez le frontend. L’achat utilise la même transaction sécurisée que les constructions : contrôle du solde, des cases occupées, verrou de carte et identifiant de requête contre les doubles achats. Une erreur annule la création et le débit. Les parcelles existantes sont conservées.

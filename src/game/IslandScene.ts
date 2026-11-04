@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CROPS, RULES } from '../config/game';
+import { BUILDINGS, CROPS, RULES, PLACEABLES } from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
 import { buildable, cropState, land, pathTo, walkable } from '../utils/rules';
 const W = 48,
@@ -515,7 +515,7 @@ export class IslandScene extends Phaser.Scene {
     if (!this.ghost) return;
     this.ghost.clear();
     if (!this.placement) return;
-    const size = BUILDINGS[this.placement.kind].size,
+    const size = PLACEABLES[this.placement.kind].size,
       ok = buildable(this.world, x, y, size, this.placement.movingId);
     for (let a = x; a < x + size; a++)
       for (let b = y; b < y + size; b++) {
@@ -523,11 +523,15 @@ export class IslandScene extends Phaser.Scene {
         this.diamond(this.ghost, p.x, p.y, 46, 23, ok ? 0x4cd6a0 : 0xef7665, 0.6);
       }
     const p = iso(x + (size - 1) / 2, y + (size - 1) / 2);
+    if (this.placement.kind === 'farm_plot') {
+      this.diamond(this.ghost, p.x, p.y, 38, 18, ok ? 0x8c6649 : 0xef7665, 0.75);
+      return;
+    }
     const w = size * W * 0.65;
     this.polygon(
       this.ghost,
       [p.x - w / 2, p.y - 20, p.x, p.y - 45 - size * 5, p.x + w / 2, p.y - 20, p.x, p.y - 8],
-      ok ? BUILDINGS[this.placement.kind].color : 0xef7665,
+      ok ? PLACEABLES[this.placement.kind].color : 0xef7665,
       0.5,
     );
   }

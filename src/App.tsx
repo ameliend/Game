@@ -34,7 +34,7 @@ import {
   islandService,
   profileService,
 } from './services/game';
-import { BUILDINGS, CROPS, RULES } from './config/game';
+import { BUILDINGS, CROPS, RULES, FARM_PLOT, PLACEABLES } from './config/game';
 import type { BuildingKind, CropKind } from './config/game';
 import type { Avatar, Placement, Player, Selection, World } from './types';
 import { buildable, countdown, cropState } from './utils/rules';
@@ -308,16 +308,22 @@ export default function App() {
   async function place(x: number, y: number) {
     if (!world || !placement || busy) return;
     const b = placement;
-    if (!buildable(world, x, y, BUILDINGS[b.kind].size, b.movingId)) {
+    if (!buildable(world, x, y, PLACEABLES[b.kind].size, b.movingId)) {
       notify('Cet emplacement est occupé ou hors de l’île.');
       return;
     }
     await perform(
       () =>
-        b.movingId
-          ? constructionService.move(b.movingId, x, y)
-          : constructionService.place(b.kind, x, y),
-      b.movingId ? 'Bâtiment déplacé !' : 'Bâtiment construit !',
+        b.kind === 'farm_plot'
+          ? agricultureService.addPlot(x, y)
+          : b.movingId
+            ? constructionService.move(b.movingId, x, y)
+            : constructionService.place(b.kind, x, y),
+      b.kind === 'farm_plot'
+        ? 'Nouvelle parcelle créée !'
+        : b.movingId
+          ? 'Bâtiment déplacé !'
+          : 'Bâtiment construit !',
       true,
     );
   }
@@ -560,11 +566,11 @@ export default function App() {
           <Hammer size={20} />
           <div>
             <strong>
-              {placement.movingId ? 'Déplacer' : 'Placer'} : {BUILDINGS[placement.kind].name}
+              {placement.movingId ? 'Déplacer' : 'Placer'} : {PLACEABLES[placement.kind].name}
             </strong>
             <small>
-              {BUILDINGS[placement.kind].size} × {BUILDINGS[placement.kind].size} cases ·{' '}
-              {placement.movingId ? 'Gratuit' : BUILDINGS[placement.kind].price + ' pièces'}
+              {PLACEABLES[placement.kind].size} × {PLACEABLES[placement.kind].size} cases ·{' '}
+              {placement.movingId ? 'Gratuit' : PLACEABLES[placement.kind].price + ' pièces'}
             </small>
           </div>
           <button aria-label="Annuler la construction" onClick={() => setPlacement(null)}>
@@ -856,6 +862,30 @@ export default function App() {
                   Maturité après 8 h. Récoltez avant 12 h, même après une déconnexion.
                 </p>
               </div>
+              <div className="info-strip">
+                <Sprout />
+                <div>
+                  <strong>Agrandir le potager commun</strong>
+                  <p>
+                    Ajoutez une parcelle de 1 × 1 case pour {FARM_PLOT.price} pièces. Le montant est
+                    débité après le placement.
+                  </p>
+                  <button
+                    className="primary"
+                    disabled={busy || !network || world.island.gold < FARM_PLOT.price}
+                    onClick={() => {
+                      setPlacement({ kind: 'farm_plot' });
+                      setSelection(null);
+                      setPanel(null);
+                    }}
+                  >
+                    <Plus size={16} /> Ajouter une parcelle · {FARM_PLOT.price} pièces
+                  </button>
+                  {world.island.gold < FARM_PLOT.price && (
+                    <p>Fonds insuffisants : {FARM_PLOT.price} pièces nécessaires.</p>
+                  )}
+                </div>
+              </div>
               <div className="crop-catalog">
                 {Object.entries(CROPS).map(([key, c]) => (
                   <article key={key}>
@@ -886,7 +916,7 @@ export default function App() {
                   </article>
                 ))}
               </div>
-              <h3>Vos parcelles</h3>
+              <h3>Parcelles communes ({world.plots.length})</h3>
               <div className="resource-list">
                 {world.plots.map((p, i) => {
                   const c = world.plantations.find((v) => v.plot_id === p.id);
@@ -1105,7 +1135,7 @@ export default function App() {
                     void place(tile.x, tile.y);
                   }}
                 >
-                  <h3>Placer {BUILDINGS[placement.kind].name}</h3>
+                  <h3>Placer {PLACEABLES[placement.kind].name}</h3>
                   <div className="coordinate-inputs">
                     <label>
                       Colonne
@@ -1135,7 +1165,7 @@ export default function App() {
                       world,
                       tile.x,
                       tile.y,
-                      BUILDINGS[placement.kind].size,
+                      PLACEABLES[placement.kind].size,
                       placement.movingId,
                     )
                       ? '✓ Emplacement disponible'
@@ -1150,7 +1180,7 @@ export default function App() {
                         world,
                         tile.x,
                         tile.y,
-                        BUILDINGS[placement.kind].size,
+                        PLACEABLES[placement.kind].size,
                         placement.movingId,
                       )
                     }

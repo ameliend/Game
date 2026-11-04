@@ -46,4 +46,4 @@ export type Selection = {
   x: number;
   y: number;
 };
-export type Placement = { kind: BuildingKind; movingId?: string } | null;
+export type Placement = { kind: BuildingKind | 'farm_plot'; movingId?: string } | null;
