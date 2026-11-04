@@ -35,6 +35,11 @@ function Harness() {
         sceneRef={ref}
       />
       <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'white', padding: 10 }}>
+        <label>
+          Message de test
+          <input aria-label="Message de test" />
+          <textarea aria-label="Texte de test" />
+        </label>
         <output data-testid="selection">{selection}</output>
         <output data-testid="position">{pos}</output>
         <button onClick={() => setPlace(place ? null : 'cottage')}>Construction test</button>

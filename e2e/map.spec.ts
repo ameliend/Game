@@ -42,3 +42,21 @@ test('Phaser affiche la carte, sélectionne, déplace et prévisualise', async (
   await page.screenshot({ path: info.outputPath('map.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
+
+test('les raccourcis du jeu ne bloquent pas la saisie de texte', async ({ page }) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  const message = 'AZdsqw azDSQW Bonjour les voisins !';
+  for (const label of ['Message de test', 'Texte de test']) {
+    const field = page.getByRole('textbox', { name: label });
+    await field.click();
+    await field.pressSequentially(message);
+    await expect(field).toHaveValue(message);
+    await expect(page.getByTestId('position')).toHaveText('30,31');
+  }
+  await page
+    .getByRole('textbox', { name: 'Texte de test' })
+    .evaluate((e) => (e as HTMLElement).blur());
+  await page.keyboard.press('ArrowUp', { delay: 220 });
+  await expect(page.getByTestId('position')).not.toHaveText('30,31');
+});
