@@ -29,7 +29,7 @@ export function buildable(world: World, x: number, y: number, size: number, movi
     for (let b = y; b < y + size; b++) {
       if (
         !land(a, b) ||
-        world.trees.some((t) => t.x === a && t.y === b) ||
+        world.trees.some((t) => !t.cut_at && t.x === a && t.y === b) ||
         world.plots.some((p) => p.x === a && p.y === b) ||
         world.buildings.some(
           (v) => v.id !== movingId && a >= v.x && a < v.x + v.size && b >= v.y && b < v.y + v.size,
@@ -45,7 +45,7 @@ export function walkable(world: World, x: number, y: number) {
     !world.buildings.some(
       (b) => b.kind !== 'road' && x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size,
     ) &&
-    !world.trees.some((t) => t.x === x && t.y === y)
+    !world.trees.some((t) => !t.cut_at && t.x === x && t.y === y)
   );
 }
 export function pathTo(

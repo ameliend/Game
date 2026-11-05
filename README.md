@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050006_commerce_and_elections.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 6 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050007_residents_random_regrowth.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 7 dans cet ordre.
 
-Sur une base neuve, exécutez les six migrations, dans l’ordre :
+Sur une base neuve, exécutez les sept migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -28,6 +28,7 @@ Sur une base neuve, exécutez les six migrations, dans l’ordre :
 4. `202611040004_buy_farm_plots.sql`
 5. `202611040005_final_assignments_road_price.sql`
 6. `202611050006_commerce_and_elections.sql`
+7. `202611050007_residents_random_regrowth.sql`
 
 La migration 2 :
 
@@ -47,19 +48,19 @@ Activez Email dans Supabase Authentication. Configurez le Site URL et les URL de
 
 Dans Vercel : framework Vite, build `npm run build`, sortie `dist`. Ajoutez les deux variables `VITE_` en type **Config**, pour Production, puis redéployez. Les variables de l’environnement cloud ne sont pas automatiquement copiées dans Vercel. Après un changement de variable, redémarrez Vite ou reconstruisez le déploiement.
 
-Vérifiez que les tables `chat_messages` et `shared_world` sont dans la publication `supabase_realtime`. Le code utilise les canaux de présence standard ; ne désactivez pas les canaux publics sans adapter l’autorisation Realtime. Dans un environnement à accès réseau restreint, autorisez le nom d’hôte exact de votre projet Supabase pour HTTPS et WebSocket.
+Vérifiez que les tables `chat_messages`, `shared_world` et (depuis la migration 7) `player_presence` sont dans la publication `supabase_realtime`. Dans un environnement à accès réseau restreint, autorisez le nom d’hôte exact de votre projet Supabase pour HTTPS et WebSocket.
 
 ## Règles du jeu commun
 
 - À l’inscription, on choisit un pseudonyme unique et un avatar ; on rejoint directement l’île existante. Aucun nom d’île n’est demandé et aucune nouvelle carte n’est créée.
 - Chaque nouveau joueur reçoit 100 pièces. Le solde et le stock sont personnels ; les arbres, cultures et bâtiments sont partagés.
 - Tous peuvent couper les arbres et planter/récolter les parcelles communes. Une ressource ne peut être récoltée deux fois ; celui qui réalise l’action reçoit les produits.
-- 5 bois par arbre, 4 pièces par bois ; repousse après 30 min. Les souches gardent leur case réservée.
+- 5 bois par arbre, 4 pièces par bois ; repousse après 30 min. Après la migration 7, l’arbre coupé disparaît entièrement, libère sa case et repousse ailleurs après ce délai.
 - Toutes les cultures sont matures à 8 h incluses et fanées à 12 h incluses ; le serveur utilise les timestamps enregistrés, même hors connexion.
 - Les achats sont payés par leur constructeur. Le score affiché en haut est celui de l’île commune. Le classement liste les contributions individuelles des constructeurs.
 - Chaque bâtiment garde son constructeur. **Le constructeur ou un administrateur** peut le déplacer gratuitement.
 - Une petite ou grande maison peut être attribuée à un utilisateur inscrit : sélectionnez-la, puis choisissez l’habitant dans « Maison attribuée à ». **L’attribution est définitive : elle ne peut être changée ni retirée, même par un administrateur.** Elle ne transfère pas le droit de déplacer le bâtiment. Plusieurs maisons peuvent être attribuées au même habitant.
-- La communauté affiche les habitants et leur statut. « Retrouver » centre la caméra sur un habitant connecté. Les avatars/positions sont diffusés par présence Realtime, disparaissent à la déconnexion et ne sont pas persistés.
+- La communauté affiche les habitants et leur statut. « Retrouver » centre la caméra sur un habitant connecté. Les avatars/positions sont signalés par une présence authentifiée en base, diffusés via Realtime et vérifiés périodiquement. Les présences expirées sont retirées de la carte.
 - Les mutations de carte produisent une révision transactionnelle Realtime qui déclenche le rechargement des autres clients ; reconnexion et rafraîchissement périodique rattrapent les événements manqués.
 
 Les prix et durées affichés sont dans `src/config/game.ts`. La table serveur `game_rules` fait autorité ; les tests vérifient leur cohérence. Après déploiement, changez ces valeurs par une nouvelle migration et alignez le frontend.
@@ -199,3 +200,42 @@ select cron.schedule(
 Les droits de vote et de collecte utilisent toujours les échéances exactes à l’heure serveur. Sans Cron, les transitions hors ligne sont rattrapées au prochain chargement ; aucun vote fictif n’est créé pour les scrutins manqués. La fenêtre de mairie se resynchronise à l’échéance et Realtime diffuse les révisions de l’île aux autres habitants.
 
 Tests : `tests/civic.test.ts` exécute les RPC PostgreSQL pour les revenus, les permissions, le vote, les régimes, la clôture et le calendrier. `tests/civic-rules.test.tsx` vérifie les limites temporelles et l’interface. `e2e/commerce.html` est une fixture isolée permettant de vérifier les graphismes et les clics sur les pièces et bulletins sans créer de faux joueurs dans l’application. Une validation manuelle à deux ou trois comptes sur votre Supabase est encore nécessaire pour confirmer le transport Realtime hébergé.
+
+## Habitants visibles et repousse aléatoire (migration 7)
+
+Appliquez `202611050007_residents_random_regrowth.sql` dans Supabase SQL Editor, après les migrations précédentes, puis déployez le frontend.
+
+### Avatars des habitants connectés
+
+Le suivi ne repose plus uniquement sur un événement de présence WebSocket. Chaque compte ayant créé son personnage signale sa position au serveur par `heartbeat_presence`. Le serveur déduit son identité de `auth.uid()`, utilise le pseudonyme et l’avatar sauvegardés, et ne permet pas de modifier la présence d’un autre utilisateur.
+
+- Un signal est envoyé dès l’arrivée sur l’île, pendant les déplacements (au plus environ 3 fois/s) et toutes les 15 s au repos.
+- Les changements de `player_presence` déclenchent une lecture Realtime. Une lecture de secours toutes les 5 s continue à afficher les habitants si le WebSocket est indisponible.
+- La migration ajoute `player_presence` à `supabase_realtime` si cette publication existe ; vérifiez-la dans les paramètres de réplication.
+- Une présence sans signal depuis 90 s n’est plus affichée. La déconnexion explicite retire immédiatement sa propre ligne ; après une fermeture brutale ou une coupure réseau, l’expiration évite les avatars fantômes. Un retour au premier plan resynchronise la présence.
+- Un seul avatar est affiché par compte, même avec plusieurs onglets. Les avatars partagent la même île et affichent leur pseudonyme. Quand plusieurs occupent la même case, leur dessin est légèrement décalé pour qu’ils restent visibles, sans changer leurs coordonnées logiques.
+- Les positions sont interpolées visuellement et les changements d’apparence sont rechargés depuis le serveur. Une erreur de configuration de la présence est affichée au lieu d’être ignorée.
+
+La position enregistrée est une présence temporaire, pas un point de sauvegarde : le personnage revient au point d’arrivée après un nouveau chargement du jeu. Les positions et pseudonymes sont des données publiques pour les joueurs authentifiés ; les emails et clés ne sont jamais inclus dans la liste.
+
+### Arbres entièrement coupés
+
+La coupe retire l’arbre entier de la carte : **aucune souche**. Sa case est immédiatement disponible pour marcher, construire ou ajouter une parcelle. Le bois est toujours accordé une seule fois par coupe.
+
+Après **30 minutes**, le serveur choisit une **autre case libre aléatoire**, hors eau, bâtiment, parcelle, arbre actif et point d’arrivée. Il évite aussi les positions récemment signalées par les habitants. L’arbre conserve son identifiant mais réapparaît à cette nouvelle position. Un arbre coupé n’occupe plus son ancienne case dans les contrôles de collision.
+
+Si aucune autre case ne convient, l’arbre reste invisible en attente ; il ne peut pas être recoupé pour gagner du bois. Le serveur réessaie plus tard. La génération quotidienne de 10 nouveaux arbres reste active, distincte de la repousse des arbres coupés.
+
+Le job Cron existant `island-daily-trees` est ajusté à une exécution par minute si Cron est disponible. Sinon, les repousses sont traitées au prochain chargement/action. Si vous activez Cron ensuite :
+
+```sql
+select cron.schedule(
+  'island-daily-trees',
+  '* * * * *',
+  'select public.ensure_daily_trees();'
+);
+```
+
+Le délai minimal de 30 min est contrôlé par l’heure serveur ; la prise en compte visuelle dépend ensuite du passage du job ou d’une synchronisation. La repousse et les constructions prennent le même verrou de l’île pour ne pas occuper la même case. Les anciennes souches sont migrées vers ce nouveau comportement sans perdre leurs horodatages.
+
+Validation : `tests/residents-trees.test.ts` vérifie les identités de deux comptes, les avatars sauvegardés, l’expiration, la coupe complète, les cases libérées, la repousse ailleurs et le terrain plein. Les tests navigateur vérifient aussi la séparation des avatars superposés, leurs déplacements, leur retrait et l’absence de souche. La connexion Realtime sur votre projet hébergé reste à vérifier après application de la migration.
