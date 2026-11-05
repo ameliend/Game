@@ -1,4 +1,4 @@
-import { RULES } from '../config/game';
+import { EXILE_ISLAND, RULES } from '../config/game';
 import type { World } from '../types';
 export function cropState(
   plantedAt: string,
@@ -24,8 +24,21 @@ export function land(x: number, y: number) {
     (x - 29.5) ** 2 / 676 + (y - 29.5) ** 2 / 576 <= 1
   );
 }
-export function worldLand(world: World, x: number, y: number) {
-  return world.exile ? (x - 30) ** 2 / 6 + (y - 30) ** 2 / 5 <= 1 : land(x, y);
+export function exileLand(x: number, y: number) {
+  return (
+    Number.isInteger(x) &&
+    Number.isInteger(y) &&
+    x >= EXILE_ISLAND.x &&
+    x < EXILE_ISLAND.x + EXILE_ISLAND.size &&
+    y >= EXILE_ISLAND.y &&
+    y < EXILE_ISLAND.y + EXILE_ISLAND.size
+  );
+}
+export function worldLand(_world: World, x: number, y: number) {
+  return land(x, y) || exileLand(x, y);
+}
+export function playerSpawn(world: World) {
+  return world.exile ? EXILE_ISLAND.spawn : RULES.spawn;
 }
 export function buildable(world: World, x: number, y: number, size: number, movingId?: string) {
   if (world.exile) return false;
@@ -45,7 +58,7 @@ export function buildable(world: World, x: number, y: number, size: number, movi
 }
 export function walkable(world: World, x: number, y: number) {
   return (
-    worldLand(world, x, y) &&
+    (world.exile ? exileLand(x, y) : land(x, y)) &&
     !world.buildings.some(
       (b) => b.kind !== 'road' && x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size,
     ) &&

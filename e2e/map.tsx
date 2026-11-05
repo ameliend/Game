@@ -57,16 +57,34 @@ function Harness() {
             setPlace(null);
             setWorld({
               ...world,
-              island: { ...world.island, id: 'exile:test', name: 'Îlot d’exil' },
-              trees: [],
-              plots: [],
-              buildings: [],
               exile: { until: new Date(Date.now() + 86400000).toISOString() },
             });
           }}
         >
           Îlot test
         </button>
+        <button onClick={() => setWorld(world)}>Retour test</button>
+        <button onClick={() => setVisitors((v) => v.map((p) => ({ ...p, x: 58, y: 30 })))}>
+          Habitant banni
+        </button>
+        {['test', 'other'].map((id) => (
+          <button
+            key={id}
+            onClick={() =>
+              setWorld((w) => ({
+                ...w,
+                governance: {
+                  regime: 'communism',
+                  mayor_id: id,
+                  epoch: new Date().toISOString(),
+                  election: null,
+                },
+              }))
+            }
+          >
+            Élire {id}
+          </button>
+        ))}
         <output data-testid="position">{pos}</output>
         <button onClick={() => setPlace(place ? null : 'cottage')}>Construction test</button>
         <button onClick={() => setPlace('farm_plot')}>Parcelle test</button>

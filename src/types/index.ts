@@ -65,6 +65,9 @@ export type Election = {
   result: string | null;
   candidates: { id: string; username: string; votes: number }[];
   my_vote: string | null;
+  elector_count?: number;
+  voted_count?: number;
+  can_vote?: boolean;
 };
 export type Governance = {
   regime: Regime;

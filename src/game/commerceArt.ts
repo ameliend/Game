@@ -80,7 +80,23 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
   g.fillRoundedRect(-24, y - 17, 48, 33, 9);
   g.lineStyle(2, c.color);
   g.strokeRoundedRect(-24, y - 17, 48, 33, 9);
-  if (kind === 'coffeeshop') {
+  if (kind === 'gym') {
+    // A weight bar and stacked plates identify the gym without relying on emoji fonts.
+    g.lineStyle(5, 0x566b80);
+    g.lineBetween(-18, y, 18, y);
+    g.fillStyle(0x233f58);
+    g.fillRoundedRect(-17, y - 10, 7, 20, 2);
+    g.fillRoundedRect(10, y - 10, 7, 20, 2);
+    g.fillStyle(0x65b8bc);
+    g.fillRoundedRect(-10, y - 7, 4, 14, 1);
+    g.fillRoundedRect(6, y - 7, 4, 14, 1);
+    // Exercise equipment is visible through the wide front window.
+    g.lineStyle(2, 0x294e65);
+    g.lineBetween(-w * 0.35, -12, -w * 0.15, -12);
+    g.lineBetween(-w * 0.3, -12, -w * 0.3, -24);
+    g.lineBetween(-w * 0.2, -12, -w * 0.2, -24);
+    g.lineBetween(-w * 0.33, -24, -w * 0.17, -24);
+  } else if (kind === 'coffeeshop') {
     g.fillStyle(0xfff4d8);
     g.fillRoundedRect(-12, y - 6, 22, 16, 4);
     g.lineStyle(3, 0xd7b480);

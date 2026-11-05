@@ -79,6 +79,13 @@ export function CivicPanel({
             {countdown(Date.parse(e.closes_at) - now)} pour voter. Un seul vote, définitif, pour un
             autre habitant.
           </p>
+          {e.elector_count !== undefined && (
+            <p role="status">
+              {e.voted_count ?? 0} / {e.elector_count} habitants ont voté. Le scrutin se termine dès
+              que tous les habitants inscrits ont voté.
+            </p>
+          )}
+          {e.can_vote === false && <p>Vous pourrez voter au prochain scrutin.</p>}
           {e.my_vote && (
             <p role="status" className="form-success">
               Votre vote pour{' '}
@@ -98,7 +105,7 @@ export function CivicPanel({
                 </div>
                 <button
                   className="secondary"
-                  disabled={busy || Boolean(e.my_vote) || c.id === userId}
+                  disabled={busy || e.can_vote === false || Boolean(e.my_vote) || c.id === userId}
                   onClick={() => onVote(c.id, e.id, e.round ?? 1)}
                 >
                   {c.id === userId
@@ -151,8 +158,9 @@ export function CivicPanel({
         />
       )}
       <p className="hint">
-        Mandat d’une semaine, puis nouveau scrutin de 24 h. En cas d’égalité, nouveau tour d’une
-        heure. Les candidats sont les habitants inscrits à l’ouverture du scrutin.
+        Mandat d’une semaine, puis nouveau scrutin de 24 h maximum. Le vote se termine plus tôt si
+        tous les habitants inscrits ont voté. En cas d’égalité, nouveau tour d’une heure. Les
+        candidats sont les habitants inscrits à l’ouverture du scrutin.
       </p>
     </div>
   );

@@ -21,11 +21,13 @@ test('la mairie officielle et les nouveaux bâtiments sont dessinés et sélecti
     'MAIRIE',
     'Coffeeshop',
     'Sexshop',
+    'Salle de sport',
   ])
     expect(labels).toContain(label);
   for (const [kind, x, y] of [
     ['coffeeshop', 18, 22],
     ['sexshop', 42, 34],
+    ['gym', 17, 35],
     ['roy_merlin', 27, 21],
     ['chocolatier', 36, 24],
     ['farm', 23, 33],
