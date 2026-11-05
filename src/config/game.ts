@@ -45,6 +45,42 @@ export const BUILDINGS = {
     icon: '🥐',
     category: 'Commerces',
   },
+  butcher: {
+    name: 'Boucherie',
+    price: 350,
+    points: 20,
+    size: 2,
+    color: 0xc75b54,
+    icon: '🥩',
+    category: 'Commerces',
+  },
+  pharmacy: {
+    name: 'Pharmacie',
+    price: 450,
+    points: 20,
+    size: 2,
+    color: 0x559a7c,
+    icon: '✚',
+    category: 'Commerces',
+  },
+  barber: {
+    name: 'Coiffeur',
+    price: 250,
+    points: 20,
+    size: 2,
+    color: 0x6c99a1,
+    icon: '✂️',
+    category: 'Commerces',
+  },
+  nail_salon: {
+    name: 'Nail saloon',
+    price: 250,
+    points: 20,
+    size: 2,
+    color: 0xc78eb3,
+    icon: '💅',
+    category: 'Commerces',
+  },
   school: {
     name: 'École',
     price: 600,
@@ -55,11 +91,11 @@ export const BUILDINGS = {
     category: 'Services',
   },
   supermarket: {
-    name: 'Supermarché',
+    name: 'Megazone',
     price: 800,
     points: 20,
-    size: 3,
-    color: 0x79af94,
+    size: 4,
+    color: 0x3f719e,
     icon: '🛒',
     category: 'Commerces',
   },
@@ -131,3 +167,11 @@ export const FARM_PLOT = {
   color: 0x8c6649,
 } as const;
 export const PLACEABLES = { ...BUILDINGS, farm_plot: FARM_PLOT };
+
+export const CIVIC_RULES = {
+  incomeMs: 24 * HOURS,
+  incomeGold: 20,
+  electionEveryMs: 15 * 24 * HOURS,
+  votingMs: 24 * HOURS,
+};
+export const isCommerce = (kind: BuildingKind) => BUILDINGS[kind].category === 'Commerces';

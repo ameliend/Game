@@ -27,6 +27,7 @@ import {
 import { configured, client } from './services/client';
 import { authService } from './services/auth';
 import {
+  civicService,
   agricultureService,
   communityService,
   constructionService,
@@ -34,13 +35,23 @@ import {
   islandService,
   profileService,
 } from './services/game';
-import { BUILDINGS, CROPS, RULES, FARM_PLOT, PLACEABLES } from './config/game';
+import {
+  BUILDINGS,
+  CROPS,
+  RULES,
+  FARM_PLOT,
+  PLACEABLES,
+  isCommerce,
+  CIVIC_RULES,
+} from './config/game';
 import type { BuildingKind, CropKind } from './config/game';
 import type { Avatar, Placement, Player, Selection, World } from './types';
 import { buildable, countdown, cropState } from './utils/rules';
 import { Landing } from './components/Auth';
 import { AvatarEditor, AvatarPortrait } from './components/AvatarEditor';
 import { HouseAssignment } from './components/HouseAssignment';
+import { CivicPanel } from './components/CivicPanel';
+import { incomeStatus, electionOpen } from './utils/civic';
 import { Modal } from './components/Modal';
 import { Chat } from './components/Chat';
 const GameCanvas = lazy(() => import('./game/GameCanvas').then((m) => ({ default: m.GameCanvas })));
@@ -53,6 +64,7 @@ type Panel =
   | 'community'
   | 'leaderboard'
   | 'profile'
+  | 'civic'
   | 'actions'
   | null;
 type Presence = {
@@ -265,6 +277,16 @@ export default function App() {
         avatar: myAvatar.current,
       });
   };
+  useEffect(() => {
+    const e = world?.governance?.election;
+    if (!e) return;
+    const now = Date.now() + offset;
+    const closes = Date.parse(e.closes_at);
+    const boundary = closes > now ? closes : Date.parse(e.starts_at) + CIVIC_RULES.electionEveryMs;
+    if (boundary <= now) return;
+    const timer = setTimeout(() => void load(), Math.min(boundary - now + 100, 2_000_000_000));
+    return () => clearTimeout(timer);
+  }, [world?.governance?.election?.id, world?.governance?.election?.closes_at, offset, load]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
     if (!world) return;
@@ -411,6 +433,7 @@ export default function App() {
     leaderboard: 'Les bâtisseurs à l’honneur',
     profile: 'Votre petit personnage',
     actions: 'Explorer votre île',
+    civic: 'La mairie et les élections',
   };
   return (
     <div className="game-shell">
@@ -420,7 +443,20 @@ export default function App() {
           playerAvatar={world.avatar}
           placement={placement}
           offset={offset}
-          onSelect={setSelection}
+          onSelect={(s) => {
+            if (s.type === 'civic') {
+              setPanel('civic');
+              return;
+            }
+            if (s.type === 'income') {
+              void perform(
+                () => civicService.claim(String(s.id)),
+                `+${CIVIC_RULES.incomeGold} pièces récupérées !`,
+              );
+              return;
+            }
+            setSelection(s);
+          }}
           onPlace={(x, y) => void place(x, y)}
           onPosition={onPosition}
           sceneRef={sceneRef}
@@ -562,6 +598,10 @@ export default function App() {
           <Map />
         </button>
       </div>
+      <button className="civic-button" onClick={() => setPanel('civic')}>
+        🏛️ Mairie · {world.governance?.regime === 'capitalism' ? 'Capitalisme' : 'Communisme'}{' '}
+        {electionOpen(world.governance?.election, now) ? '🗳️ Vote ouvert' : ''}
+      </button>
       {placement && (
         <div className="placement-banner">
           <Hammer size={20} />
@@ -735,6 +775,49 @@ export default function App() {
                 />
               )}
 
+              {isCommerce(building.kind) &&
+                (() => {
+                  const income = incomeStatus(
+                    building,
+                    now,
+                    world.governance?.regime ?? 'communism',
+                    session.user.id,
+                  );
+                  return (
+                    <div className="commerce-income">
+                      <p>Revenu : {CIVIC_RULES.incomeGold} pièces / 24 h</p>
+                      {income.ready ? (
+                        <button
+                          className="primary"
+                          disabled={busy || !network || !income.canClaim}
+                          onClick={() =>
+                            void perform(
+                              () => civicService.claim(building.id),
+                              `+${CIVIC_RULES.incomeGold} pièces récupérées !`,
+                            )
+                          }
+                        >
+                          🪙 {income.canClaim ? 'Récupérer le revenu' : 'Réservé au constructeur'}
+                        </button>
+                      ) : (
+                        <p>
+                          Prochaine pièce dans <strong>{countdown(income.remaining)}</strong>
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
+              {building.kind === 'townhall' && (
+                <button
+                  className="primary"
+                  onClick={() => {
+                    setSelection(null);
+                    setPanel('civic');
+                  }}
+                >
+                  🗳️ Élections et régime économique
+                </button>
+              )}
               <p>
                 {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
               </p>
@@ -792,6 +875,21 @@ export default function App() {
       )}
       {panel && (
         <Modal title={titles[panel]} onClose={() => setPanel(null)}>
+          {panel === 'civic' && (
+            <CivicPanel
+              governance={world.governance}
+              players={players}
+              userId={session.user.id}
+              now={now}
+              busy={busy || !network}
+              onVote={(id, electionId) =>
+                void perform(() => civicService.vote(id, electionId), 'Vote enregistré !')
+              }
+              onRegime={(mode) =>
+                void perform(() => civicService.setRegime(mode), 'Régime économique mis à jour !')
+              }
+            />
+          )}
           {panel === 'build' && (
             <>
               <p className="muted">

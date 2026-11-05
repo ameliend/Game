@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CROPS, RULES, PLACEABLES } from '../config/game';
+import { BUILDINGS, CROPS, RULES, PLACEABLES, isCommerce } from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
+import { drawCommerce, commerceSignY } from './commerceArt';
+import { incomeStatus, electionOpen } from '../utils/civic';
 import { buildable, cropState, land, pathTo, walkable } from '../utils/rules';
 const W = 48,
   H = 24;
@@ -313,13 +315,16 @@ export class IslandScene extends Phaser.Scene {
         g = this.add
           .graphics()
           .setPosition(p.x, p.y)
-          .setDepth(b.x + b.y + b.size * 2);
+          .setDepth(b.x + b.y + b.size * 2)
+          .setName(`building:${b.id}`);
       const cfg = BUILDINGS[b.kind],
         w = b.size * W * 0.68,
         h = b.size * H * 0.68;
       g.fillStyle(0x356951, 0.18);
       g.fillEllipse(3, 5, w + 10, h + 6);
-      if (b.kind === 'road') {
+      if (isCommerce(b.kind)) {
+        drawCommerce(g, b.kind, b.size);
+      } else if (b.kind === 'road') {
         this.diamond(g, 0, 0, 44, 22, 0xcbbd9a);
       } else if (b.kind === 'park') {
         this.diamond(g, 0, 0, w, h, 0x659f65);
@@ -379,8 +384,16 @@ export class IslandScene extends Phaser.Scene {
         }
       }
       this.objects.add(g);
+      const top = isCommerce(b.kind)
+        ? commerceSignY(b.size) - 18
+        : -(45 + b.size * 8) / 2 - 15 - b.size * 3;
       const zone = this.add
-        .zone(p.x, p.y - 15 - b.size * 3, w, 45 + b.size * 8)
+        .zone(
+          p.x,
+          p.y + (isCommerce(b.kind) ? top / 2 : -15 - b.size * 3),
+          Math.max(w, 54),
+          isCommerce(b.kind) ? -top + 20 : 45 + b.size * 8,
+        )
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .setDepth(b.x + b.y + b.size * 2 + 0.1);
@@ -398,6 +411,73 @@ export class IslandScene extends Phaser.Scene {
         },
       );
       this.objects.add(zone);
+      if (isCommerce(b.kind)) {
+        const label = this.add
+          .text(p.x, p.y + 12, BUILDINGS[b.kind].name, {
+            fontFamily: 'Trebuchet MS',
+            fontSize: b.kind === 'supermarket' ? '14px' : '10px',
+            fontStyle: 'bold',
+            color: b.kind === 'supermarket' ? '#ffe477' : '#fff8df',
+            backgroundColor: b.kind === 'supermarket' ? '#315f88' : '#426e58',
+            padding: { x: 5, y: 2 },
+          })
+          .setOrigin(0.5)
+          .setDepth(1200)
+          .setName(`shop-label:${b.id}`);
+        this.objects.add(label);
+      }
+      const income = incomeStatus(
+        b,
+        now,
+        this.world.governance?.regime ?? 'communism',
+        this.world.profile.id,
+      );
+      const ballot = b.kind === 'townhall' && electionOpen(this.world.governance?.election, now);
+      if (income.ready || ballot) {
+        const yy = p.y + (isCommerce(b.kind) ? commerceSignY(b.size) - 40 : -110);
+        const badge = this.add.graphics().setPosition(p.x, yy).setDepth(1300);
+        if (ballot) {
+          badge.fillStyle(0xfff8db);
+          badge.fillRoundedRect(-15, -13, 30, 26, 5);
+          badge.fillStyle(0x608a7a);
+          badge.fillRect(-10, 2, 20, 7);
+          badge.lineStyle(2, 0x608a7a);
+          badge.lineBetween(-8, -5, 7, -5);
+          badge.lineBetween(-6, -9, -1, -6);
+        } else {
+          badge.fillStyle(income.canClaim ? 0xf1c653 : 0xbeb68a);
+          badge.fillCircle(0, 0, 14);
+          badge.lineStyle(2, 0xfff1a3);
+          badge.strokeCircle(0, 0, 10);
+          badge.lineStyle(3, 0xa17d2d);
+          badge.lineBetween(0, -6, 0, 6);
+        }
+        this.objects.add(badge);
+        const hit = this.add
+          .zone(p.x, yy, 38, 38)
+          .setInteractive({ useHandCursor: true })
+          .setDepth(1301)
+          .setName(`${ballot ? 'ballot' : 'income'}:${b.id}`);
+        hit.on(
+          'pointerup',
+          (
+            _pointer: Phaser.Input.Pointer,
+            _x: number,
+            _y: number,
+            event: Phaser.Types.Input.EventData,
+          ) => {
+            if (this.dragged || this.placement) return;
+            event.stopPropagation();
+            this.onSelect({
+              type: ballot ? 'civic' : income.canClaim ? 'income' : 'building',
+              id: b.id,
+              x: b.x,
+              y: b.y,
+            });
+          },
+        );
+        this.objects.add(hit);
+      }
     }
     this.objects.sort('depth');
     if (this.avatar) {

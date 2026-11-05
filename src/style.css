@@ -2059,3 +2059,62 @@ select {
   color: #294e40;
   font: inherit;
 }
+
+.civic-button {
+  position: absolute;
+  top: 119px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fffdf2ee;
+  color: #3b6b57;
+  border: 1px solid #ffffdc;
+  border-radius: 12px;
+  padding: 9px 16px;
+  box-shadow: 0 3px 12px #386f6620;
+  font-size: 11px;
+  z-index: 7;
+}
+.commerce-income {
+  padding: 10px 0;
+  border-block: 1px solid #e6e9d8;
+  margin: 10px 0;
+}
+.commerce-income button {
+  margin-bottom: 8px;
+}
+.civic-panel > h3 {
+  margin: 24px 0 12px;
+}
+.civic-panel > p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.art-supermarket {
+  background: #d9e9ee;
+}
+.art-butcher {
+  background: #f2dcd5;
+}
+.art-pharmacy {
+  background: #e4efdc;
+}
+.art-barber {
+  background: #deeaec;
+}
+.art-nail_salon {
+  background: #f3deed;
+}
+@media (max-width: 650px) {
+  .civic-button {
+    top: 122px;
+    left: auto;
+    right: 12px;
+    transform: none;
+    font-size: 8px;
+    padding: 6px 8px;
+    max-width: 52%;
+  }
+  .civic-panel .player-list button {
+    font-size: 9px;
+  }
+}

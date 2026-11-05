@@ -14,6 +14,8 @@ export type Building = {
   created_by?: string | null;
   assigned_to?: string | null;
   assigned_at?: string | null;
+  built_at?: string;
+  income_claimed_cycle?: number;
 };
 export type World = {
   island: Island;
@@ -25,6 +27,7 @@ export type World = {
   buildings: Building[];
   inventory: Record<string, number>;
   server_time: string;
+  governance?: Governance;
 };
 export type Player = {
   id: string;
@@ -42,9 +45,27 @@ export type Message = {
   created_at: string;
 };
 export type Selection = {
-  type: 'tree' | 'plot' | 'building' | 'ground';
+  type: 'tree' | 'plot' | 'building' | 'ground' | 'income' | 'civic';
   id?: number | string;
   x: number;
   y: number;
 };
 export type Placement = { kind: BuildingKind | 'farm_plot'; movingId?: string } | null;
+
+export type Regime = 'communism' | 'capitalism';
+export type Election = {
+  id: string;
+  starts_at: string;
+  closes_at: string;
+  finalized_at: string | null;
+  winner_id: string | null;
+  result: string | null;
+  candidates: { id: string; username: string; votes: number }[];
+  my_vote: string | null;
+};
+export type Governance = {
+  regime: Regime;
+  mayor_id: string | null;
+  epoch: string | null;
+  election: Election | null;
+};

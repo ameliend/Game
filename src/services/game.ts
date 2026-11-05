@@ -10,6 +10,12 @@ export const action = (
   payload: Record<string, unknown> = {},
   requestId = crypto.randomUUID(),
 ) => rpc('game_action', { p_action: type, p_payload: payload, p_request: requestId });
+export const civicService = {
+  vote: (candidateId: string, electionId: string) =>
+    action('vote', { candidate_id: candidateId, election_id: electionId }),
+  setRegime: (regime: string) => action('set_regime', { regime }),
+  claim: (id: string) => action('claim_income', { id }),
+};
 export const economyService = {
   chop: (id: number) => action('chop', { id }),
   sell: (item: string, quantity: number) => action('sell', { item, quantity }),

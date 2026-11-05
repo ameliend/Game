@@ -18,15 +18,16 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611040005_final_assignments_road_price.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2, 3, 4 et 5 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050006_commerce_and_elections.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 6 dans cet ordre.
 
-Sur une base neuve, exécutez les cinq migrations, dans l’ordre :
+Sur une base neuve, exécutez les six migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
 3. `202611040003_expand_daily_trees.sql`
 4. `202611040004_buy_farm_plots.sql`
 5. `202611040005_final_assignments_road_price.sql`
+6. `202611050006_commerce_and_elections.sql`
 
 La migration 2 :
 
@@ -140,3 +141,61 @@ Les maisons déjà attribuées au moment de la migration sont verrouillées auss
 Appliquez `202611040005_final_assignments_road_price.sql` dans Supabase SQL Editor après les migrations précédentes, puis déployez le frontend. Un redéploiement frontend seul ne change pas les prix ou permissions serveur.
 
 Les raccourcis de déplacement observent les touches sans bloquer leur saisie dans le chat ou les formulaires. Le personnage reste immobile lorsque le focus se trouve dans un champ de texte, une zone éditable ou un contrôle d’interface. Ce correctif est uniquement frontend et ne nécessite aucune nouvelle migration SQL.
+
+## Commerces, pièces quotidiennes et mairie (migration 6)
+
+Les commerces ont des façades et enseignes vectorielles locales : croissant pour la boulangerie, steak rouge pour la boucherie, croix verte pour la pharmacie, ciseaux pour le coiffeur et ongle rose pour Nail saloon. Le supermarché devient **Megazone**, avec une façade vitrée bleue/jaune, un chariot et une enseigne nominative. Il occupe désormais **4 × 4 cases**.
+
+| Commerce    | Achat | Empreinte | Revenu par période |
+| ----------- | ----: | --------: | -----------------: |
+| Boulangerie |   300 |     2 × 2 |                 20 |
+| Megazone    |   800 |     4 × 4 |                 20 |
+| Restaurant  |   500 |     2 × 2 |                 20 |
+| Boucherie   |   350 |     2 × 2 |                 20 |
+| Pharmacie   |   450 |     2 × 2 |                 20 |
+| Coiffeur    |   250 |     2 × 2 |                 20 |
+| Nail saloon |   250 |     2 × 2 |                 20 |
+
+Les prix et montants sont des valeurs MVP configurables dans `game_rules` et `src/config/game.ts` ; un test vérifie leur cohérence. Les nouveaux commerces donnent 20 points de contribution.
+
+### Revenus
+
+- La première pièce apparaît **24 heures après la construction**, à partir de `buildings.built_at` enregistré par PostgreSQL.
+- Chaque période suivante reste ancrée à la construction : 24 h, 48 h, 72 h… La collecte ne décale pas l’échéance suivante. Une pièce représente **20 pièces d’or**.
+- Une seule collecte est possible par commerce et période. Les périodes manquées ne se cumulent pas ; une pièce disponible représente la période courante. Un commerce jamais visité pendant 5 jours rapporte donc 20 pièces à sa collecte, pas 100.
+- Cliquez sur la pièce au-dessus du commerce, ou sélectionnez le commerce puis « Récupérer le revenu ». Le menu Actions donne accès aux mêmes commerces au clavier.
+- Le **communisme** est le régime par défaut : n’importe quel habitant peut récupérer la pièce et garde le revenu. En **capitalisme**, seul le constructeur du commerce peut la récupérer, même si un autre joueur est maire ou administrateur. La pièce reste visible, mais apparaît réservée pour les autres.
+- La transaction prend le verrou de l’île, vérifie le régime et la période à l’heure serveur, inscrit la collecte avec une contrainte unique `(building_id, cycle)`, puis crédite l’habitant authentifié. L’UUID de requête conserve l’idempotence en cas de rejeu. Aucun montant ou horodatage envoyé par le navigateur n’est accepté comme autorité.
+- Les maisons, écoles, mairie, hôpital et décorations ne produisent pas ce revenu.
+
+### Élections
+
+La construction de la **première mairie** ouvre immédiatement le premier scrutin, pendant **24 h**. Un nouveau scrutin commence **tous les 15 × 24 h**, selon cette même origine. Plusieurs mairies partagent une seule élection et n’ajoutent pas de votes.
+
+Un bulletin de vote apparaît au-dessus des mairies tant que le scrutin est ouvert. Cliquez dessus, sur le bouton Mairie de l’interface ou sur « Élections et régime économique » dans la fiche d’une mairie.
+
+Les candidats sont les profils présents au début du scrutin. Les habitants arrivés après l’ouverture peuvent voter mais ne seront candidats qu’au prochain scrutin. Chaque utilisateur peut voter **une seule fois**, pour **un autre habitant** ; le choix est définitif. Les résultats agrégés sont affichés, mais le vote individuel de chaque autre joueur reste privé. Le scrutin est fermé à son échéance exacte, même si le navigateur affiche encore des données anciennes.
+
+À la clôture, l’unique candidat avec le plus de voix devient maire. **En cas d’égalité ou d’absence de votes, le maire sortant reste en fonction** ; si le poste était vacant, il le reste. Le maire sortant conserve son mandat pendant le scrutin suivant. Si son compte est supprimé, le poste devient vacant.
+
+Le maire peut choisir entre **Communisme** et **Capitalisme** dans la fenêtre de mairie. Ce choix s’applique immédiatement aux pièces encore disponibles ; il ne transfère ni les bâtiments ni les soldes déjà gagnés. Le serveur vérifie le maire actuel avant chaque changement, sans dérogation pour l’administrateur. Aucun bâtiment ou portefeuille n’est nationalisé par le nom du régime : seule la règle de collecte des revenus change.
+
+### Appliquer et vérifier la migration
+
+Dans Supabase SQL Editor, exécutez `202611050006_commerce_and_elections.sql` **après les migrations précédentes**, puis déployez le frontend. Les soldes, inventaires, attributions et constructions sont conservés. Les Megazone existants sont agrandis en place si possible, sinon déplacés vers la zone 4 × 4 libre la plus proche. Si aucune zone ne convient, toute la migration est annulée avec une erreur explicite.
+
+L’ancien schéma ne conservait pas la date de construction. Pour les commerces et mairies existants, **l’origine des nouveaux délais est donc l’heure d’application de cette migration**, sans prétendre reconstituer une date inconnue. Les nouveaux bâtiments enregistrent leur date réelle.
+
+Les transitions électorales sont exécutées au chargement et lors des actions. Lorsque Supabase Cron est déjà activé, la migration ajoute `island-civic-transitions` toutes les 5 minutes pour traiter les clôtures et ouvertures sans joueur connecté. Si vous activez Cron ensuite :
+
+```sql
+select cron.schedule(
+  'island-civic-transitions',
+  '*/5 * * * *',
+  'select public.ensure_civic_state();'
+);
+```
+
+Les droits de vote et de collecte utilisent toujours les échéances exactes à l’heure serveur. Sans Cron, les transitions hors ligne sont rattrapées au prochain chargement ; aucun vote fictif n’est créé pour les scrutins manqués. La fenêtre de mairie se resynchronise à l’échéance et Realtime diffuse les révisions de l’île aux autres habitants.
+
+Tests : `tests/civic.test.ts` exécute les RPC PostgreSQL pour les revenus, les permissions, le vote, les régimes, la clôture et le calendrier. `tests/civic-rules.test.tsx` vérifie les limites temporelles et l’interface. `e2e/commerce.html` est une fixture isolée permettant de vérifier les graphismes et les clics sur les pièces et bulletins sans créer de faux joueurs dans l’application. Une validation manuelle à deux ou trois comptes sur votre Supabase est encore nécessaire pour confirmer le transport Realtime hébergé.
