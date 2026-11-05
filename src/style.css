@@ -2132,3 +2132,19 @@ select {
   z-index: 13;
   overflow-wrap: anywhere;
 }
+
+.art-roy_merlin {
+  background: #e1ebd3;
+}
+.art-chocolatier {
+  background: #edd9c5;
+}
+.art-farm {
+  background: #e6ebcc;
+}
+.art-hotel {
+  background: #e0e8ec;
+}
+.art-townhall {
+  background: #e1e7e6;
+}

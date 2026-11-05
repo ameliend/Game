@@ -11,19 +11,24 @@ const polygon = (g: Phaser.GameObjects.Graphics, points: number[], color: number
     true,
   );
 };
-export const commerceSignY = (size: number) => -(34 + size * 6) - size * 24 * 0.34 - 24;
+export const commerceSignY = (size: number, kind?: BuildingKind) =>
+  kind === 'hotel' ? -176 : -(34 + size * 6) - size * 24 * 0.34 - 24;
 export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind, size: number) {
+  if (kind === 'hotel') return drawHotel(g, size);
   const c = BUILDINGS[kind],
     w = size * 48 * 0.68,
     h = size * 24 * 0.68,
     wall = 34 + size * 6;
   const pink = kind === 'nail_salon',
     white = kind === 'pharmacy',
-    mega = kind === 'supermarket';
+    mega = kind === 'supermarket',
+    hardware = kind === 'roy_merlin',
+    chocolate = kind === 'chocolatier',
+    warehouse = mega || hardware;
   polygon(
     g,
     [-w / 2, -h / 2, 0, 0, 0, -wall, -w / 2, -wall - h / 2],
-    white ? 0xf9fff0 : pink ? 0xf6dfe9 : 0xf2dec0,
+    white ? 0xf9fff0 : pink ? 0xf6dfe9 : hardware ? 0xf5f3df : chocolate ? 0xf3d4ab : 0xf2dec0,
   );
   polygon(
     g,
@@ -51,8 +56,8 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
   g.lineBetween(1, -24, 1, -1);
   g.fillStyle(0xf7e6a3);
   g.fillCircle(5, -11, 1);
-  if (mega) {
-    g.fillStyle(0xf1cd4a);
+  if (warehouse) {
+    g.fillStyle(hardware ? 0x579253 : 0xf1cd4a);
     g.fillRoundedRect(-w * 0.4, -wall + 1, w * 0.78, 9, 2);
     g.fillStyle(0x4b6c83);
     g.fillRoundedRect(-w * 0.17, -wall - h * 0.65, 16, 9, 2);
@@ -68,14 +73,33 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
     }
   }
   // A dedicated elevated sign for every shop.
-  const y = commerceSignY(size);
+  const y = commerceSignY(size, kind);
   g.fillStyle(0x4c635b);
   g.fillRect(-2, y + 10, 4, 17);
   g.fillStyle(0xfffcdf);
   g.fillRoundedRect(-24, y - 17, 48, 33, 9);
   g.lineStyle(2, c.color);
   g.strokeRoundedRect(-24, y - 17, 48, 33, 9);
-  if (kind === 'bakery') {
+  if (kind === 'roy_merlin') {
+    polygon(g, [-20, y + 10, 0, y - 13, 20, y + 10], 0x52925c);
+    g.lineStyle(4, 0xb0804b);
+    g.lineBetween(-6, y + 7, 7, y - 7);
+    g.lineStyle(5, 0xd3d8ce);
+    g.lineBetween(1, y - 10, 12, y - 1);
+    g.fillStyle(0xc9a16d);
+    for (let i = 0; i < 3; i++) g.fillRect(w * 0.29, -3 + i * 3, 20, 3);
+  } else if (kind === 'chocolatier') {
+    g.fillStyle(0x54362d);
+    g.fillRoundedRect(-10, y - 13, 21, 26, 3);
+    g.fillStyle(0x8a5540);
+    for (let row = 0; row < 3; row++)
+      for (let col = 0; col < 2; col++) g.fillRoundedRect(-8 + col * 10, y - 11 + row * 8, 8, 6, 1);
+    g.fillStyle(0xe6c778);
+    g.fillRect(-11, y + 4, 23, 10);
+    polygon(g, [-11, y + 4, 0, y + 10, 12, y + 4], 0xf9e7ab);
+    g.fillStyle(0x654032);
+    for (let i = 0; i < 3; i++) g.fillCircle(-w * 0.36 + i * 6, -17, 3);
+  } else if (kind === 'bakery') {
     g.fillStyle(0xc97d32);
     g.fillEllipse(0, y + 1, 34, 18);
     g.fillStyle(0xf1bd5c);
@@ -141,5 +165,54 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
     g.lineBetween(5, y - 8, 5, y + 9);
     g.lineBetween(-9, y - 6, -3, y - 6);
   }
+  return { signY: y, width: w };
+}
+
+function drawHotel(g: Phaser.GameObjects.Graphics, size: number) {
+  const w = size * 48 * 0.74,
+    h = size * 24 * 0.68,
+    wall = 112,
+    y = commerceSignY(size, 'hotel');
+  polygon(g, [-w / 2, -h / 2, 0, 0, 0, -wall, -w / 2, -wall - h / 2], 0xf5dfb7);
+  polygon(g, [0, 0, w / 2, -h / 2, w / 2, -wall - h / 2, 0, -wall], 0xc0c9cc);
+  polygon(
+    g,
+    [-w / 2 - 3, -wall - h / 2, 0, -wall - h, w / 2 + 3, -wall - h / 2, 0, -wall],
+    0x58768e,
+  );
+  g.lineStyle(3, 0xe7c178);
+  g.lineBetween(-w / 2, -wall - h / 2, 0, -wall);
+  g.lineBetween(0, -wall, w / 2, -wall - h / 2);
+  for (let floor = 0; floor < 3; floor++) {
+    const yy = -97 + floor * 27;
+    for (const x of [-w * 0.37, -w * 0.17, w * 0.12, w * 0.31]) {
+      g.fillStyle(0x668f9b);
+      g.fillRoundedRect(x, yy, 11, 16, 2);
+      g.fillStyle(0xf4df9b);
+      g.fillRect(x + 2, yy + 2, 3, 11);
+      g.lineStyle(1, 0xf8efd4);
+      g.strokeRect(x - 2, yy + 14, 15, 4);
+    }
+  }
+  g.fillStyle(0x4d6573);
+  g.fillRoundedRect(-10, -25, 20, 25, 3);
+  g.lineStyle(1, 0xf7deb4);
+  g.lineBetween(0, -24, 0, 0);
+  polygon(g, [-24, -27, -3, -35, 24, -27, 2, -18], 0xb87360);
+  g.lineStyle(2, 0xe6c594);
+  g.lineBetween(-18, -23, -18, 2);
+  g.lineBetween(18, -23, 18, 2);
+  g.fillStyle(0xbfa86b);
+  g.fillRect(-2, y + 15, 4, 25);
+  g.fillStyle(0x405f80);
+  g.fillRoundedRect(-21, y - 17, 42, 35, 6);
+  g.lineStyle(2, 0xe6c77c);
+  g.strokeRoundedRect(-21, y - 17, 42, 35, 6);
+  g.lineStyle(4, 0xffecb7);
+  g.lineBetween(-7, y - 11, -7, y + 6);
+  g.lineBetween(7, y - 11, 7, y + 6);
+  g.lineBetween(-7, y - 3, 7, y - 3);
+  g.fillStyle(0xe4be66);
+  for (let i = 0; i < 4; i++) g.fillCircle(-12 + i * 8, y + 12, 2);
   return { signY: y, width: w };
 }

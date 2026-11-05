@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { BUILDINGS, CROPS, RULES, PLACEABLES, isCommerce } from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
+import { drawTownHall, drawFarm, TOWNHALL_TOP } from './landmarkArt';
 import { drawCommerce, commerceSignY } from './commerceArt';
 import { residentOffset } from '../utils/residents';
 import { incomeStatus, electionOpen } from '../utils/civic';
@@ -343,6 +344,10 @@ export class IslandScene extends Phaser.Scene {
       g.fillEllipse(3, 5, w + 10, h + 6);
       if (isCommerce(b.kind)) {
         drawCommerce(g, b.kind, b.size);
+      } else if (b.kind === 'townhall') {
+        drawTownHall(g, b.size);
+      } else if (b.kind === 'farm') {
+        drawFarm(g, b.size);
       } else if (b.kind === 'road') {
         this.diamond(g, 0, 0, 44, 22, 0xcbbd9a);
       } else if (b.kind === 'park') {
@@ -404,14 +409,23 @@ export class IslandScene extends Phaser.Scene {
       }
       this.objects.add(g);
       const top = isCommerce(b.kind)
-        ? commerceSignY(b.size) - 18
-        : -(45 + b.size * 8) / 2 - 15 - b.size * 3;
+        ? commerceSignY(b.size, b.kind) - 18
+        : b.kind === 'townhall'
+          ? TOWNHALL_TOP
+          : b.kind === 'farm'
+            ? -102
+            : -(45 + b.size * 8) / 2 - 15 - b.size * 3;
       const zone = this.add
         .zone(
           p.x,
-          p.y + (isCommerce(b.kind) ? top / 2 : -15 - b.size * 3),
+          p.y +
+            (isCommerce(b.kind) || b.kind === 'townhall' || b.kind === 'farm'
+              ? top / 2
+              : -15 - b.size * 3),
           Math.max(w, 54),
-          isCommerce(b.kind) ? -top + 20 : 45 + b.size * 8,
+          isCommerce(b.kind) || b.kind === 'townhall' || b.kind === 'farm'
+            ? -top + 40
+            : 45 + b.size * 8,
         )
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
@@ -445,6 +459,35 @@ export class IslandScene extends Phaser.Scene {
           .setName(`shop-label:${b.id}`);
         this.objects.add(label);
       }
+      if (b.kind === 'townhall' || b.kind === 'farm') {
+        const name = this.add
+          .text(p.x, p.y + (b.kind === 'farm' ? 40 : 16), cfg.name, {
+            fontSize: '11px',
+            fontStyle: 'bold',
+            fontFamily: 'Arial',
+            color: '#fff7df',
+            backgroundColor: b.kind === 'townhall' ? '#405d70' : '#657d4e',
+            padding: { x: 6, y: 3 },
+          })
+          .setOrigin(0.5)
+          .setDepth(1200)
+          .setName(`building-label:${b.id}`);
+        this.objects.add(name);
+        if (b.kind === 'townhall') {
+          this.objects.add(
+            this.add
+              .text(p.x, p.y - 55, 'MAIRIE', {
+                fontSize: '7px',
+                fontStyle: 'bold',
+                fontFamily: 'Arial',
+                color: '#f8edca',
+              })
+              .setOrigin(0.5)
+              .setDepth(1201)
+              .setName(`townhall-plaque:${b.id}`),
+          );
+        }
+      }
       const income = incomeStatus(
         b,
         now,
@@ -453,7 +496,8 @@ export class IslandScene extends Phaser.Scene {
       );
       const ballot = b.kind === 'townhall' && electionOpen(this.world.governance?.election, now);
       if (income.ready || ballot) {
-        const yy = p.y + (isCommerce(b.kind) ? commerceSignY(b.size) - 40 : -110);
+        const yy =
+          p.y + (isCommerce(b.kind) ? commerceSignY(b.size, b.kind) - 40 : TOWNHALL_TOP - 28);
         const badge = this.add.graphics().setPosition(p.x, yy).setDepth(1300);
         if (ballot) {
           badge.fillStyle(0xfff8db);

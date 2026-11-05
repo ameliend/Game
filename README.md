@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050007_residents_random_regrowth.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 7 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050008_more_buildings.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 8 dans cet ordre.
 
-Sur une base neuve, exécutez les sept migrations, dans l’ordre :
+Sur une base neuve, exécutez les huit migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -29,6 +29,7 @@ Sur une base neuve, exécutez les sept migrations, dans l’ordre :
 5. `202611040005_final_assignments_road_price.sql`
 6. `202611050006_commerce_and_elections.sql`
 7. `202611050007_residents_random_regrowth.sql`
+8. `202611050008_more_buildings.sql`
 
 La migration 2 :
 
@@ -239,3 +240,22 @@ select cron.schedule(
 Le délai minimal de 30 min est contrôlé par l’heure serveur ; la prise en compte visuelle dépend ensuite du passage du job ou d’une synchronisation. La repousse et les constructions prennent le même verrou de l’île pour ne pas occuper la même case. Les anciennes souches sont migrées vers ce nouveau comportement sans perdre leurs horodatages.
 
 Validation : `tests/residents-trees.test.ts` vérifie les identités de deux comptes, les avatars sauvegardés, l’expiration, la coupe complète, les cases libérées, la repousse ailleurs et le terrain plein. Les tests navigateur vérifient aussi la séparation des avatars superposés, leurs déplacements, leur retrait et l’absence de souche. La connexion Realtime sur votre projet hébergé reste à vérifier après application de la migration.
+
+## Mairie officielle et nouveaux bâtiments (migration 8)
+
+La mairie conserve son empreinte 3 × 3 et son prix de 1 000 pièces. Son dessin est remplacé automatiquement, y compris pour les mairies déjà construites : pierre claire, fronton, colonnes, horloge, perron, plaque MAIRIE et drapeaux. Ce changement est graphique et ne déplace aucune mairie existante.
+
+| Ajout        | Catégorie   | Prix | Empreinte | Points |
+| ------------ | ----------- | ---: | --------: | -----: |
+| Roy Merlin   | Commerces   |  700 |     4 × 4 |     20 |
+| Chocolaterie | Commerces   |  450 |     2 × 2 |     20 |
+| Ferme        | Agriculture |  400 |     4 × 4 |     30 |
+| Hôtel        | Commerces   |  900 |     3 × 3 |     20 |
+
+Roy Merlin possède un grand entrepôt vert, une enseigne avec un marteau et des matériaux devant la façade. La chocolaterie présente une tablette et une devanture cacao/crème. L’hôtel est plus haut, avec plusieurs étages, des balcons, un auvent et une enseigne H. La ferme possède une grange rouge, un silo, une clôture, du foin et un petit tracteur.
+
+Ces prix sont les valeurs par défaut du catalogue, centralisées dans la configuration frontend et la règle serveur `buildings`. Les nouveaux commerces utilisent le revenu de commerce déjà en place. La ferme est un bâtiment agricole ; les parcelles réellement cultivables restent achetées séparément dans Agriculture. Le filtre Agriculture du catalogue permet de la retrouver.
+
+Appliquez `202611050008_more_buildings.sql` dans Supabase SQL Editor après les migrations précédentes, puis déployez le frontend. Cette migration ajoute seulement les quatre entrées de catalogue et annonce la nouvelle révision de l’île. Elle ne modifie aucun portefeuille, stock, construction ou délai existant.
+
+`tests/new-buildings.test.ts` vérifie les entrées du catalogue, l’achat et le placement des quatre bâtiments, les prix, les empreintes et la conservation des constructions existantes. `e2e/catalogue.html` est une scène de test isolée pour le rendu et la sélection sur desktop/mobile, exclue du build de production.
