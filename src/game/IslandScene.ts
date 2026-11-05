@@ -5,7 +5,7 @@ import { drawTownHall, drawFarm, TOWNHALL_TOP } from './landmarkArt';
 import { drawCommerce, commerceSignY } from './commerceArt';
 import { residentOffset } from '../utils/residents';
 import { incomeStatus, electionOpen } from '../utils/civic';
-import { buildable, cropState, land, pathTo, walkable } from '../utils/rules';
+import { buildable, cropState, worldLand, pathTo, walkable } from '../utils/rules';
 const W = 48,
   H = 24;
 const iso = (x: number, y: number) => ({ x: ((x - y) * W) / 2, y: ((x + y) * H) / 2 });
@@ -111,6 +111,10 @@ export class IslandScene extends Phaser.Scene {
     });
   }
   fit() {
+    if (this.world.exile) {
+      this.cameras.main.setZoom(1.5);
+      return;
+    }
     const z = Phaser.Math.Clamp(
       Math.min(this.scale.width / 2100, this.scale.height / 1400),
       0.25,
@@ -152,6 +156,7 @@ export class IslandScene extends Phaser.Scene {
   }
   drawTerrain() {
     const g = this.terrain;
+    const land = (x: number, y: number) => worldLand(this.world, x, y);
     // Local vector artwork, no external image requests.
     for (let i = 0; i < 60; i++) {
       const x = ((i * 211) % 1600) - 800,
@@ -185,6 +190,7 @@ export class IslandScene extends Phaser.Scene {
             g.lineBetween(p.x + 2, p.y, p.x + 4, p.y - 2);
           }
         }
+    if (this.world.exile) return;
     // Decorative boulders sit outside the playable land.
     for (const [x, y] of [
       [2, 25],
@@ -586,6 +592,8 @@ export class IslandScene extends Phaser.Scene {
     if (this.sys.isActive()) {
       this.redraw();
       if (changed) {
+        this.terrain.clear();
+        this.drawTerrain();
         this.tweens.killTweensOf(this.avatar);
         this.walking = false;
         this.placeAvatar(RULES.spawn.x, RULES.spawn.y);
@@ -594,7 +602,7 @@ export class IslandScene extends Phaser.Scene {
     }
   }
   select(x: number, y: number) {
-    if (!land(x, y)) return;
+    if (!worldLand(this.world, x, y)) return;
     if (this.placement) {
       this.onPlace(x, y);
       return;

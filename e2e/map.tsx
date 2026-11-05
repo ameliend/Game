@@ -3,6 +3,7 @@ import { useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { GameCanvas } from '../src/game/GameCanvas';
 import { IslandScene } from '../src/game/IslandScene';
+import { repeatPlacement } from '../src/utils/placement';
 import type { World } from '../src/types';
 import '../src/style.css';
 const world: World = {
@@ -24,7 +25,7 @@ function Harness() {
   ]);
   const [selection, setSelection] = useState(''),
     [pos, setPos] = useState('30,31'),
-    [place, setPlace] = useState<'cottage' | 'farm_plot' | null>(null);
+    [place, setPlace] = useState<'cottage' | 'farm_plot' | 'road' | null>(null);
   (window as any).scene = ref;
   return (
     <div className="game-shell">
@@ -33,7 +34,10 @@ function Harness() {
         placement={place ? { kind: place } : null}
         offset={0}
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
-        onPlace={(x, y) => setSelection('place:' + x + ',' + y)}
+        onPlace={(x, y) => {
+          setSelection('place:' + x + ',' + y);
+          if (place && !repeatPlacement({ kind: place })) setPlace(null);
+        }}
         onPosition={(x, y) => setPos(x + ',' + y)}
         guests={visitors}
         sceneRef={ref}
@@ -45,6 +49,24 @@ function Harness() {
           <textarea aria-label="Texte de test" />
         </label>
         <output data-testid="selection">{selection}</output>
+        <output data-testid="placement-mode">{place ?? 'none'}</output>
+        <button onClick={() => setPlace('road')}>Mode route</button>
+        <button
+          onClick={() => {
+            setVisitors([]);
+            setPlace(null);
+            setWorld({
+              ...world,
+              island: { ...world.island, id: 'exile:test', name: 'Îlot d’exil' },
+              trees: [],
+              plots: [],
+              buildings: [],
+              exile: { until: new Date(Date.now() + 86400000).toISOString() },
+            });
+          }}
+        >
+          Îlot test
+        </button>
         <output data-testid="position">{pos}</output>
         <button onClick={() => setPlace(place ? null : 'cottage')}>Construction test</button>
         <button onClick={() => setPlace('farm_plot')}>Parcelle test</button>

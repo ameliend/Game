@@ -80,7 +80,27 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
   g.fillRoundedRect(-24, y - 17, 48, 33, 9);
   g.lineStyle(2, c.color);
   g.strokeRoundedRect(-24, y - 17, 48, 33, 9);
-  if (kind === 'roy_merlin') {
+  if (kind === 'coffeeshop') {
+    g.fillStyle(0xfff4d8);
+    g.fillRoundedRect(-12, y - 6, 22, 16, 4);
+    g.lineStyle(3, 0xd7b480);
+    g.strokeCircle(12, y, 6);
+    g.fillStyle(0x75503a);
+    g.fillEllipse(-1, y - 5, 21, 5);
+    g.lineStyle(2, 0xbfaa8a);
+    g.lineBetween(-5, y - 11, -3, y - 16);
+    g.lineBetween(3, y - 11, 5, y - 16);
+    g.lineStyle(2, 0x8a694b);
+    g.lineBetween(-15, y + 12, 14, y + 12);
+  } else if (kind === 'sexshop') {
+    polygon(g, [-16, y - 9, 16, y - 9, 13, y + 1, 5, y + 11, -5, y + 11, -13, y + 1], 0xc7769d);
+    g.lineStyle(2, 0x7e4e7a);
+    g.lineBetween(-16, y - 9, 16, y - 9);
+    g.lineBetween(-13, y - 4, -5, y + 11);
+    g.lineBetween(13, y - 4, 5, y + 11);
+    g.fillStyle(0xf3d4e2);
+    g.fillCircle(0, y - 2, 2);
+  } else if (kind === 'roy_merlin') {
     polygon(g, [-20, y + 10, 0, y - 13, 20, y + 10], 0x52925c);
     g.lineStyle(4, 0xb0804b);
     g.lineBetween(-6, y + 7, 7, y - 7);

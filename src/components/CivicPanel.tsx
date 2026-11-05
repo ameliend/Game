@@ -1,3 +1,4 @@
+import { ExilePanel } from './ExilePanel';
 import { CIVIC_RULES } from '../config/game';
 import type { Governance, Player, Regime } from '../types';
 import { countdown } from '../utils/rules';
@@ -10,14 +11,18 @@ export function CivicPanel({
   busy,
   onVote,
   onRegime,
+  onProposeExile,
+  onVoteExile,
 }: {
   governance: Governance | undefined;
   players: Player[];
   userId: string;
   now: number;
   busy: boolean;
-  onVote: (candidateId: string, electionId: string) => void;
+  onVote: (candidateId: string, electionId: string, round: number) => void;
   onRegime: (regime: Regime) => void;
+  onProposeExile?: (id: string) => void;
+  onVoteExile?: (id: string, round: number, yes: boolean) => void;
 }) {
   const g = governance,
     e = g?.election,
@@ -70,8 +75,9 @@ export function CivicPanel({
       {open && e ? (
         <>
           <p className="muted">
-            Il reste {countdown(Date.parse(e.closes_at) - now)} pour voter. Un seul vote, définitif,
-            pour un autre habitant.
+            {(e.round ?? 1) > 1 ? 'Égalité : nouveau tour d’une heure. ' : ''}Il reste{' '}
+            {countdown(Date.parse(e.closes_at) - now)} pour voter. Un seul vote, définitif, pour un
+            autre habitant.
           </p>
           {e.my_vote && (
             <p role="status" className="form-success">
@@ -93,7 +99,7 @@ export function CivicPanel({
                 <button
                   className="secondary"
                   disabled={busy || Boolean(e.my_vote) || c.id === userId}
-                  onClick={() => onVote(c.id, e.id)}
+                  onClick={() => onVote(c.id, e.id, e.round ?? 1)}
                 >
                   {c.id === userId
                     ? 'Vote pour soi interdit'
@@ -109,7 +115,7 @@ export function CivicPanel({
         <>
           <p className="muted">
             {e?.result === 'tie'
-              ? 'Égalité : le maire sortant reste en fonction.'
+              ? 'Ancien scrutin clos à égalité. Le prochain scrutin est indiqué ci-dessous.'
               : e?.result === 'no_votes'
                 ? 'Aucun vote : le maire sortant reste en fonction.'
                 : e?.result === 'elected'
@@ -119,14 +125,34 @@ export function CivicPanel({
           {e && (
             <p>
               Prochain scrutin dans{' '}
-              {countdown(Date.parse(e.starts_at) + CIVIC_RULES.electionEveryMs - now)}
+              {countdown(
+                Date.parse(
+                  g.next_election_at ??
+                    new Date(Date.parse(e.closes_at) + CIVIC_RULES.electionEveryMs).toISOString(),
+                ) - now,
+              )}
             </p>
           )}
         </>
       )}
+      {g.term_ends_at && (
+        <p className="muted">Fin du mandat : {new Date(g.term_ends_at).toLocaleString('fr-FR')}</p>
+      )}
+      {onProposeExile && onVoteExile && (
+        <ExilePanel
+          proposal={g.exile_proposal}
+          players={players}
+          userId={userId}
+          isMayor={g.mayor_id === userId}
+          now={now}
+          busy={busy}
+          onPropose={onProposeExile}
+          onVote={onVoteExile}
+        />
+      )}
       <p className="hint">
-        Élection tous les 15 jours, ouverte pendant 24 h. Les candidats sont les habitants inscrits
-        à l’ouverture du scrutin.
+        Mandat d’une semaine, puis nouveau scrutin de 24 h. En cas d’égalité, nouveau tour d’une
+        heure. Les candidats sont les habitants inscrits à l’ouverture du scrutin.
       </p>
     </div>
   );

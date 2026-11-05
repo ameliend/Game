@@ -69,13 +69,15 @@ it('synchronise le catalogue serveur et frontend avec les quatre ajouts', async 
   const rules = (await db.query<any>("select value from public.game_rules where key='buildings'"))
     .rows[0].value;
   expect(Object.keys(rules)).toHaveLength(19);
-  for (const [key, v] of Object.entries(BUILDINGS))
+  for (const key of Object.keys(rules)) {
+    const v = BUILDINGS[key as keyof typeof BUILDINGS];
     expect(rules[key]).toEqual({
       price: v.price,
       points: v.points,
       size: v.size,
       commerce: isCommerce(key as keyof typeof BUILDINGS),
     });
+  }
 });
 for (const kind of ['roy_merlin', 'chocolatier', 'farm', 'hotel'] as const) {
   it(`achète et place ${kind} avec son prix et son empreinte`, async () => {

@@ -15,6 +15,11 @@ export function client() {
 }
 export async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await client().rpc(name, args);
-  if (error) throw new Error(error.message);
+  if (error)
+    throw Object.assign(new Error(error.message), {
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
   return data as T;
 }

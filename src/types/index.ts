@@ -28,6 +28,7 @@ export type World = {
   inventory: Record<string, number>;
   server_time: string;
   governance?: Governance;
+  exile?: { until: string };
 };
 export type Player = {
   id: string;
@@ -57,6 +58,8 @@ export type Election = {
   id: string;
   starts_at: string;
   closes_at: string;
+  round?: number;
+  round_started_at?: string;
   finalized_at: string | null;
   winner_id: string | null;
   result: string | null;
@@ -68,6 +71,9 @@ export type Governance = {
   mayor_id: string | null;
   epoch: string | null;
   election: Election | null;
+  term_ends_at?: string | null;
+  next_election_at?: string | null;
+  exile_proposal?: ExileProposal | null;
 };
 
 export type Resident = {
@@ -77,4 +83,18 @@ export type Resident = {
   x: number;
   y: number;
   avatar: Avatar;
+};
+
+export type ExileProposal = {
+  id: string;
+  target_id: string;
+  target_name: string;
+  starts_at: string;
+  closes_at: string;
+  round: number;
+  status: 'open' | 'accepted' | 'rejected';
+  yes: number;
+  no: number;
+  my_vote: boolean | null;
+  can_vote: boolean;
 };

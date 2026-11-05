@@ -12,9 +12,20 @@ test('la mairie officielle et les nouveaux bâtiments sont dessinés et sélecti
       .filter((o: any) => o.type === 'Text')
       .map((o: any) => o.text),
   );
-  for (const label of ['Roy Merlin', 'Chocolaterie', 'Ferme', 'Hôtel', 'Mairie', 'MAIRIE'])
+  for (const label of [
+    'Roy Merlin',
+    'Chocolaterie',
+    'Ferme',
+    'Hôtel',
+    'Mairie',
+    'MAIRIE',
+    'Coffeeshop',
+    'Sexshop',
+  ])
     expect(labels).toContain(label);
   for (const [kind, x, y] of [
+    ['coffeeshop', 18, 22],
+    ['sexshop', 42, 34],
     ['roy_merlin', 27, 21],
     ['chocolatier', 36, 24],
     ['farm', 23, 33],

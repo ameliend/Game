@@ -47,9 +47,12 @@ import {
 } from './config/game';
 import type { BuildingKind, CropKind } from './config/game';
 import type { Avatar, Placement, Player, Selection, World } from './types';
+import { repeatPlacement } from './utils/placement';
 import { buildable, countdown, cropState } from './utils/rules';
 import { Landing } from './components/Auth';
 import { AvatarEditor, AvatarPortrait } from './components/AvatarEditor';
+import { BuildingCatalogue } from './components/BuildingCatalogue';
+import { useServerConnection } from './hooks/useServerConnection';
 import { HouseAssignment } from './components/HouseAssignment';
 import { CivicPanel } from './components/CivicPanel';
 import { incomeStatus, electionOpen } from './utils/civic';
@@ -84,10 +87,15 @@ export default function App() {
     [players, setPlayers] = useState<Player[]>([]),
     [now, setNow] = useState(Date.now()),
     [offset, setOffset] = useState(0),
-    [category, setCategory] = useState('Tous'),
     [draftAvatar, setDraftAvatar] = useState<Avatar | null>(null),
-    [tile, setTile] = useState({ x: 30, y: 30 }),
-    [network, setNetwork] = useState(navigator.onLine);
+    [tile, setTile] = useState({ x: 30, y: 30 });
+  const {
+    available: network,
+    success: connectionSuccess,
+    failure: connectionFailure,
+  } = useServerConnection();
+  const [demolition, setDemolition] = useState<string | null>(null),
+    [maintenanceError, setMaintenanceError] = useState('');
   const sceneRef = useRef<IslandScene | null>(null),
     syncGeneration = useRef(0),
     operation = useRef(false),
@@ -132,11 +140,13 @@ export default function App() {
       const w = await islandService.load();
       if (generation !== syncGeneration.current) return;
       setWorld(w);
+      connectionSuccess();
       if (w) setOffset(Date.parse(w.server_time) - (start + Date.now()) / 2);
       setLoaded(true);
       setLoadError('');
     } catch (e) {
       if (generation === syncGeneration.current) {
+        connectionFailure(e);
         setLoadError(errorText(e));
         setLoaded(true);
       }
@@ -158,11 +168,10 @@ export default function App() {
   }, [offset]);
   useEffect(() => {
     const refresh = () => {
-      if (document.visibilityState === 'visible' && navigator.onLine) void load();
+      if (document.visibilityState === 'visible') void load();
     };
     const net = () => {
-      setNetwork(navigator.onLine);
-      if (navigator.onLine) void load();
+      void load();
     };
     document.addEventListener('visibilitychange', refresh);
     window.addEventListener('online', net);
@@ -192,7 +201,7 @@ export default function App() {
     residents: online,
     error: presenceError,
     updatePosition: onPosition,
-  } = useResidents(world ? session?.user.id : undefined);
+  } = useResidents(world && !world.exile ? session?.user.id : undefined);
   useEffect(() => {
     if (!world || !session) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -216,7 +225,13 @@ export default function App() {
     if (!e) return;
     const now = Date.now() + offset;
     const closes = Date.parse(e.closes_at);
-    const boundary = closes > now ? closes : Date.parse(e.starts_at) + CIVIC_RULES.electionEveryMs;
+    const boundary =
+      closes > now
+        ? closes
+        : Date.parse(
+            world?.governance?.next_election_at ??
+              new Date(Date.parse(e.closes_at) + CIVIC_RULES.electionEveryMs).toISOString(),
+          );
     if (boundary <= now) return;
     const timer = setTimeout(() => void load(), Math.min(boundary - now + 100, 2_000_000_000));
     return () => clearTimeout(timer);
@@ -229,6 +244,46 @@ export default function App() {
     )
       setSelection(null);
   }, [world, selection]);
+  useEffect(() => {
+    if (!world || !session || world.exile) return;
+    let alive = true,
+      running = false;
+    const maintain = async () => {
+      if (running) return;
+      running = true;
+      try {
+        await civicService.refresh();
+        if (alive) {
+          setMaintenanceError('');
+          await load();
+        }
+      } catch (e) {
+        if (alive) setMaintenanceError(errorText(e));
+      } finally {
+        running = false;
+      }
+    };
+    void maintain();
+    const timer = setInterval(() => void maintain(), 60000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [world?.island.id, session?.user.id, load]);
+  useEffect(() => {
+    if (!world?.exile) return;
+    const timer = setTimeout(
+      () => void load(),
+      Math.max(100, Date.parse(world.exile.until) - Date.now() - offset + 100),
+    );
+    return () => clearTimeout(timer);
+  }, [world?.exile?.until, load, offset]);
+  useEffect(() => {
+    setPanel(null);
+    setSelection(null);
+    setPlacement(null);
+  }, [world?.island.id]);
+  useEffect(() => setDemolition(null), [selection?.id]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
     if (!world) return;
@@ -253,10 +308,15 @@ export default function App() {
   }, []);
   async function perform(fn: () => Promise<unknown>, success: string, close = false) {
     if (operation.current || !network) return;
+    if (world?.exile) {
+      notify('Vous êtes sur l’îlot d’exil jusqu’à la fin des 24 h.');
+      return;
+    }
     operation.current = true;
     setBusy(true);
     try {
       await fn();
+      connectionSuccess();
       notify(success);
       if (close) {
         setSelection(null);
@@ -264,6 +324,7 @@ export default function App() {
       }
       await load();
     } catch (e) {
+      connectionFailure(e);
       notify(errorText(e));
     } finally {
       operation.current = false;
@@ -289,16 +350,24 @@ export default function App() {
         : b.movingId
           ? 'Bâtiment déplacé !'
           : 'Bâtiment construit !',
-      true,
+      !repeatPlacement(b),
     );
   }
   function startBuild(kind: BuildingKind, movingId?: string) {
+    if (world?.exile) {
+      notify('Construction impossible sur l’îlot d’exil.');
+      return;
+    }
     setPlacement({ kind, movingId });
     setPanel(null);
     setSelection(null);
-    notify('Choisissez une case libre. Vert : disponible, rouge : occupée.');
+    notify('Choisissez une case libre. Vert : disponible, rouge : occupée. Échap pour terminer.');
   }
   function locatePlayer(p: Player) {
+    if (world?.exile) {
+      notify('Le retour sera possible à la fin de l’exil.');
+      return;
+    }
     const presence = online.find((v) => v.id === p.id);
     if (presence) {
       sceneRef.current?.focusTile(presence.x, presence.y);
@@ -471,7 +540,8 @@ export default function App() {
       </header>
       {!network && (
         <div className="connection-banner" role="alert">
-          Connexion perdue. Les actions sont suspendues ; votre progression reste sur le serveur.
+          Connexion au serveur interrompue. Votre progression est conservée.
+          <button onClick={() => void load()}>Réessayer</button>
         </div>
       )}
       {presenceError && (
@@ -486,7 +556,10 @@ export default function App() {
         </div>
       )}
       <div className="map-label">
-        <span className="live-dot" /> Île commune <span>·</span> {RULES.size} × {RULES.size} cases
+        <span className="live-dot" />{' '}
+        {world.exile
+          ? 'Îlot d’exil sans ressources'
+          : `Île commune · ${RULES.size} × ${RULES.size} cases`}
       </div>
       {tutorial && !placement && (
         <section className="tutorial">
@@ -562,11 +635,26 @@ export default function App() {
             <small>
               {PLACEABLES[placement.kind].size} × {PLACEABLES[placement.kind].size} cases ·{' '}
               {placement.movingId ? 'Gratuit' : PLACEABLES[placement.kind].price + ' pièces'}
+              {placement.kind === 'road' && !placement.movingId
+                ? ' · Pose continue · Échap ou × pour terminer'
+                : ''}
             </small>
           </div>
           <button aria-label="Annuler la construction" onClick={() => setPlacement(null)}>
             <X size={20} />
           </button>
+        </div>
+      )}
+      {world.exile && (
+        <div className="exile-banner" role="status">
+          🏝️ Exil temporaire · Retour automatique dans{' '}
+          {countdown(Date.parse(world.exile.until) - now)}. Aucune ressource ni construction sur cet
+          îlot.
+        </div>
+      )}
+      {maintenanceError && (
+        <div className="presence-warning" role="status">
+          Maintenance en attente : {maintenanceError}. La carte reste accessible.
         </div>
       )}
       {selection && selection.type !== 'ground' && !placement && (
@@ -766,6 +854,38 @@ export default function App() {
                 <Move size={16} />
                 Déplacer gratuitement
               </button>
+              {world.governance?.mayor_id === session.user.id &&
+                (building.kind === 'cottage' ||
+                  building.kind === 'house' ||
+                  isCommerce(building.kind)) && (
+                  <div>
+                    {demolition === building.id ? (
+                      <>
+                        <p>Cette démolition est définitive et ne rembourse pas le constructeur.</p>
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() =>
+                            void perform(
+                              () => civicService.demolish(building.id),
+                              'Bâtiment démoli.',
+                              true,
+                            )
+                          }
+                        >
+                          Confirmer la démolition
+                        </button>
+                        <button className="text-button" onClick={() => setDemolition(null)}>
+                          Annuler
+                        </button>
+                      </>
+                    ) : (
+                      <button className="text-button" onClick={() => setDemolition(building.id)}>
+                        Démolir · pouvoir du maire
+                      </button>
+                    )}
+                  </div>
+                )}
             </>
           )}
         </section>
@@ -790,6 +910,9 @@ export default function App() {
         ).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
+            disabled={
+              Boolean(world.exile) && ['build', 'farm', 'market', 'inventory'].includes(key)
+            }
             className={panel === key ? 'active' : ''}
             onClick={() => {
               setPanel(key);
@@ -816,9 +939,15 @@ export default function App() {
               players={players}
               userId={session.user.id}
               now={now}
-              busy={busy || !network}
-              onVote={(id, electionId) =>
-                void perform(() => civicService.vote(id, electionId), 'Vote enregistré !')
+              busy={busy || !network || Boolean(world.exile)}
+              onVote={(id, electionId, round) =>
+                void perform(() => civicService.vote(id, electionId, round), 'Vote enregistré !')
+              }
+              onProposeExile={(id) =>
+                void perform(() => civicService.proposeExile(id), 'Vote d’exil proposé.')
+              }
+              onVoteExile={(id, round, yes) =>
+                void perform(() => civicService.voteExile(id, round, yes), 'Vote enregistré.')
               }
               onRegime={(mode) =>
                 void perform(() => civicService.setRegime(mode), 'Régime économique mis à jour !')
@@ -826,61 +955,12 @@ export default function App() {
             />
           )}
           {panel === 'build' && (
-            <>
-              <p className="muted">
-                Un toit, un jardin, un lieu où se retrouver. Faites grandir votre île.
-              </p>
-              <div className="balance-line">
-                <Coins size={18} />
-                {world.island.gold} pièces disponibles
-              </div>
-              <div className="filters">
-                {['Tous', 'Habitations', 'Commerces', 'Agriculture', 'Services', 'Décorations'].map(
-                  (c) => (
-                    <button
-                      className={category === c ? 'active' : ''}
-                      key={c}
-                      onClick={() => setCategory(c)}
-                    >
-                      {c}
-                    </button>
-                  ),
-                )}
-              </div>
-              <div className="catalog">
-                {Object.entries(BUILDINGS)
-                  .filter(([, b]) => category === 'Tous' || b.category === category)
-                  .map(([key, b]) => (
-                    <article key={key}>
-                      <div className={'building-art art-' + key}>
-                        <span>{b.icon}</span>
-                        <small>
-                          {b.size} × {b.size}
-                        </small>
-                      </div>
-                      <div className="catalog-detail">
-                        <h3>{b.name}</h3>
-                        <p>
-                          +{b.points} points de village
-                          {key === 'farm' ? ' · Parcelles vendues séparément' : ''}
-                        </p>
-                        <button
-                          className="buy-button"
-                          disabled={world.island.gold < b.price || !network}
-                          onClick={() => startBuild(key as BuildingKind)}
-                        >
-                          <Coins size={15} />
-                          {b.price}
-                          <Plus size={15} />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-              </div>
-              <p className="hint">
-                Le montant est débité seulement après le placement. Déplacement gratuit.
-              </p>
-            </>
+            <BuildingCatalogue
+              gold={world.island.gold}
+              available={network && !world.exile}
+              onChoose={startBuild}
+              onRetry={() => void load()}
+            />
           )}
           {panel === 'farm' && (
             <>

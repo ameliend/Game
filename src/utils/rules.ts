@@ -24,7 +24,11 @@ export function land(x: number, y: number) {
     (x - 29.5) ** 2 / 676 + (y - 29.5) ** 2 / 576 <= 1
   );
 }
+export function worldLand(world: World, x: number, y: number) {
+  return world.exile ? (x - 30) ** 2 / 6 + (y - 30) ** 2 / 5 <= 1 : land(x, y);
+}
 export function buildable(world: World, x: number, y: number, size: number, movingId?: string) {
+  if (world.exile) return false;
   for (let a = x; a < x + size; a++)
     for (let b = y; b < y + size; b++) {
       if (
@@ -41,7 +45,7 @@ export function buildable(world: World, x: number, y: number, size: number, movi
 }
 export function walkable(world: World, x: number, y: number) {
   return (
-    land(x, y) &&
+    worldLand(world, x, y) &&
     !world.buildings.some(
       (b) => b.kind !== 'road' && x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size,
     ) &&

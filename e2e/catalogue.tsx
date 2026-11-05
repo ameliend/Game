@@ -8,6 +8,8 @@ import type { BuildingKind } from '../src/config/game';
 import type { World } from '../src/types';
 import '../src/style.css';
 const plots: [BuildingKind, number, number][] = [
+  ['coffeeshop', 18, 22],
+  ['sexshop', 42, 34],
   ['roy_merlin', 26, 20],
   ['chocolatier', 36, 24],
   ['farm', 22, 32],

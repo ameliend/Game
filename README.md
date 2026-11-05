@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050008_more_buildings.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 8 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050009_recovery_management.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 9 dans cet ordre.
 
-Sur une base neuve, exécutez les huit migrations, dans l’ordre :
+Sur une base neuve, exécutez les neuf migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -30,6 +30,7 @@ Sur une base neuve, exécutez les huit migrations, dans l’ordre :
 6. `202611050006_commerce_and_elections.sql`
 7. `202611050007_residents_random_regrowth.sql`
 8. `202611050008_more_buildings.sql`
+9. `202611050009_recovery_management.sql`
 
 La migration 2 :
 
@@ -259,3 +260,34 @@ Ces prix sont les valeurs par défaut du catalogue, centralisées dans la config
 Appliquez `202611050008_more_buildings.sql` dans Supabase SQL Editor après les migrations précédentes, puis déployez le frontend. Cette migration ajoute seulement les quatre entrées de catalogue et annonce la nouvelle révision de l’île. Elle ne modifie aucun portefeuille, stock, construction ou délai existant.
 
 `tests/new-buildings.test.ts` vérifie les entrées du catalogue, l’achat et le placement des quatre bâtiments, les prix, les empreintes et la conservation des constructions existantes. `e2e/catalogue.html` est une scène de test isolée pour le rendu et la sélection sur desktop/mobile, exclue du build de production.
+
+## Correction du chargement et gestion du village (migration 9)
+
+### Erreur Supabase 57014 et catalogue bloqué
+
+`57014 / canceling statement due to statement timeout` signifie que le serveur a interrompu un traitement trop long. La migration 9 rend `load_world` indépendant des traitements de repousse et de transition : la lecture n’exécute plus de maintenance. La carte peut ainsi s’ouvrir même si une maintenance échoue. L’application lance séparément `refresh_world` en arrière-plan, au chargement puis toutes les minutes, et affiche un message si ce traitement attend. Les actions serveur continuent à appliquer les règles du jeu à l’heure serveur.
+
+Le rattrapage des arbres est borné à **5 repousses et une journée de 10 nouveaux arbres par passage**. Les journées restantes restent en file ; elles ne sont pas supprimées. Les recherches de cases libres utilisent des requêtes d’ensemble plutôt qu’un appel de fonction de collision pour chaque case. Cron poursuit le rattrapage par petites étapes, et les prochaines ouvertures/actions du jeu le poursuivent aussi.
+
+Le catalogue ne se bloque plus sur `navigator.onLine`, qui peut être faux même quand Supabase répond. L’application utilise les réponses réelles du serveur. Une erreur SQL (y compris 57014) n’est pas présentée comme une panne réseau. Si le réseau est réellement inaccessible, un message et un bouton de reconnexion apparaissent dans le catalogue. Les achats restent validés par le solde serveur.
+
+### Nouvelles boutiques et routes
+
+- **Coffeeshop** : 300 pièces, 2 × 2 cases, 20 points ; une tasse et de la vapeur sur l’enseigne.
+- **Sexshop** : 500 pièces, 2 × 2 cases, 20 points ; un slip stylisé sur l’enseigne.
+- Les deux suivent le revenu de commerce existant de 20 pièces par période de 24 h.
+- Après une pose de route réussie, le mode reste sélectionné : cliquez sur d’autres cases pour continuer à 1 pièce par case. Échap ou × termine la pose. Les autres bâtiments quittent toujours le mode après une construction.
+
+### Gestion du village
+
+Le maire peut démolir une maison ou un commerce depuis sa fiche. Une confirmation explicite est demandée. La démolition ne rembourse pas l’achat ; les points associés sont retirés et le bâtiment est archivé dans `demolitions` pour l’opérateur de base. Les mairies, bâtiments publics, fermes, routes et décorations ne font pas partie de ce pouvoir.
+
+Le mandat dure maintenant **7 jours après la clôture du scrutin qui a désigné le maire**. Ensuite, un nouveau scrutin de 24 h est ouvert. Une égalité avec des suffrages exprimés ouvre un nouveau tour d’une heure entre les candidats à égalité ; les habitants revotent pour ce tour. Les anciens votes sont conservés avec leur numéro de tour. Sans suffrage exprimé, le maire sortant reste en fonction et un nouveau scrutin est prévu la semaine suivante. Les scrutins déjà terminés ne sont pas réécrits par la migration.
+
+Dans la mairie, le maire peut proposer l’exil d’un autre habitant. La fenêtre initiale est de 24 h. Les habitants présents à l’ouverture, sauf la personne concernée et les personnes déjà en exil, choisissent Oui ou Non. Une majorité des suffrages exprimés décide ; aucun vote vaut refus. Une égalité positive ouvre un nouveau tour d’une heure. Un seul vote d’exil peut être ouvert à la fois.
+
+Un exil adopté dure **24 h à partir de la clôture du vote**. L’habitant reste connecté, mais sa carte devient un tout petit îlot sans arbres, parcelles ou bâtiments. Il ne peut pas agir sur l’île principale pendant ce délai. Son argent, son inventaire et ses propriétés sont conservés. Le chat reste disponible. La présence de son avatar sur l’île principale est retirée. Au terme du délai, la carte principale est rechargée automatiquement. Le retour au premier plan ou un rechargement resynchronise également ce statut.
+
+La migration conserve les constructions existantes, les anciens votes et les attributions. Appliquez `202611050009_recovery_management.sql` dans Supabase SQL Editor après les migrations 1 à 8, puis déployez le frontend. Rechargez les navigateurs déjà ouverts pour utiliser la nouvelle version. Les opérations de maintenance Cron existantes utilisent automatiquement les fonctions mises à jour ; aucun secret supplémentaire n’est nécessaire.
+
+Validation ciblée : `recovery-catalogue.test.ts`, `connection-status.test.ts`, `village-management.test.ts` et `exile-map.test.ts`. Les fixtures navigateur vérifient aussi un catalogue utilisable malgré un faux indicateur hors ligne, les nouvelles enseignes, les routes en continu et le rendu du petit îlot. La correction de la version hébergée nécessite l’application de la migration puis une nouvelle vérification sur votre projet Supabase.
