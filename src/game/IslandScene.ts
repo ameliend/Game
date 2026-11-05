@@ -178,7 +178,7 @@ export class IslandScene extends Phaser.Scene {
       g.strokeEllipse(x, y, 18 + (i % 4) * 12, 5);
     }
     for (let y = 0; y < RULES.size; y++)
-      for (let x = 0; x < RULES.size; x++)
+      for (let x = 0; x < Math.max(RULES.size, EXILE_ISLAND.x + EXILE_ISLAND.size); x++)
         if (land(x, y)) {
           const p = iso(x, y),
             edge =
@@ -326,6 +326,18 @@ export class IslandScene extends Phaser.Scene {
       for (let i = -1; i <= 1; i++) {
         g.lineStyle(1, 0xb18a60);
         g.lineBetween(-12 + i * 4, -2 - i * 2, 3 + i * 4, 5 - i * 2);
+      }
+      if (plot.owner_id) {
+        g.lineStyle(2, plot.owner_id === this.world.profile.id ? 0x4bad82 : 0xd09e58);
+        g.strokePoints(
+          [
+            new Phaser.Geom.Point(0, -9),
+            new Phaser.Geom.Point(21, 1),
+            new Phaser.Geom.Point(0, 11),
+            new Phaser.Geom.Point(-21, 1),
+          ],
+          true,
+        );
       }
       const plant = this.world.plantations.find((v) => v.plot_id === plot.id);
       if (plant) {

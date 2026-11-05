@@ -55,6 +55,8 @@ import { AvatarEditor, AvatarPortrait } from './components/AvatarEditor';
 import { BuildingCatalogue } from './components/BuildingCatalogue';
 import { useServerConnection } from './hooks/useServerConnection';
 import { HouseAssignment } from './components/HouseAssignment';
+import { HarvestControls } from './components/HarvestControls';
+import { canMoveBuilding } from './utils/property';
 import { CivicPanel } from './components/CivicPanel';
 import { incomeStatus, electionOpen } from './utils/civic';
 import { Modal } from './components/Modal';
@@ -712,6 +714,20 @@ export default function App() {
             <>
               <span className="object-emoji">{plant ? CROPS[plant.crop].emoji : '🌱'}</span>
               <h3>{plant ? CROPS[plant.crop].name : 'Une parcelle fertile'}</h3>
+              <HarvestControls
+                plot={plot}
+                userId={session.user.id}
+                mature={state === 'mature'}
+                disabled={busy || !network}
+                onHarvest={() => {
+                  if (plant)
+                    void perform(
+                      () => agricultureService.harvest(plot.id),
+                      '+2 ' + CROPS[plant.crop].name.toLowerCase() + ' récoltées',
+                      true,
+                    );
+                }}
+              />
               {plant ? (
                 <>
                   <p>
@@ -729,21 +745,6 @@ export default function App() {
                       )}
                       <small>avant {state === 'mature' ? 'fanaison' : 'maturité'}</small>
                     </div>
-                  )}
-                  {state === 'mature' && (
-                    <button
-                      className="primary"
-                      disabled={busy || !network}
-                      onClick={() =>
-                        void perform(
-                          () => agricultureService.harvest(plot.id),
-                          '+2 ' + CROPS[plant.crop].name.toLowerCase() + ' récoltées',
-                          true,
-                        )
-                      }
-                    >
-                      Récolter
-                    </button>
                   )}
                   {state === 'withered' && (
                     <button
@@ -864,9 +865,7 @@ export default function App() {
               </p>
               <button
                 className="primary"
-                disabled={
-                  !network || (building.created_by !== session.user.id && !world.profile.is_admin)
-                }
+                disabled={busy || !network || !canMoveBuilding(world, building)}
                 onClick={() => startBuild(building.kind, building.id)}
               >
                 <Move size={16} />

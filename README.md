@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050010_exile_election_gym.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 10 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050011_plot_property_mayor_moves.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 11 dans cet ordre.
 
-Sur une base neuve, exécutez les dix migrations, dans l’ordre :
+Sur une base neuve, exécutez les onze migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -32,6 +32,7 @@ Sur une base neuve, exécutez les dix migrations, dans l’ordre :
 8. `202611050008_more_buildings.sql`
 9. `202611050009_recovery_management.sql`
 10. `202611050010_exile_election_gym.sql`
+11. `202611050011_plot_property_mayor_moves.sql`
 
 La migration 2 :
 
@@ -310,3 +311,21 @@ La migration contient aussi le cadeau demandé de **500 pièces pour le compte `
 Appliquez `202611050010_exile_election_gym.sql` après les migrations 1 à 9, puis déployez le frontend. Le crédit de Cam est effectif uniquement lorsque ce SQL a été exécuté sur la base hébergée. Aucun accès administrateur à la base hébergée n’est disponible dans l’environnement de développement.
 
 Validation : `tests/island-update.test.ts` couvre le crédit unique, la fin anticipée et le nouveau tour, le mandat, le placement des présences et le retour, ainsi que l’achat et le revenu de la salle de sport. `tests/exile-map.test.ts` couvre les neuf cases et les déplacements entre les deux zones. Les tests navigateur vérifient aussi l’îlot, l’étoile locale/distante et la salle de sport sur ordinateur et téléphone.
+
+## Parcelles privées, déplacements du maire et recul de l’îlot (migration 11)
+
+Les récoltes d’une parcelle située à **10 cases ou moins d’une maison attribuée** sont réservées à son propriétaire déclaré (`assigned_to`), même si quelqu’un d’autre a construit la maison ou semé la culture. Cette règle concerne les petites et grandes maisons, et tous les fruits/légumes cultivés sur les parcelles. Une maison non attribuée ne réserve aucune parcelle. Hors de ces zones, la parcelle est commune et chacun peut récolter.
+
+Le rayon est mesuré à vol d’oiseau depuis la case de la maison la plus proche de la parcelle, bord compris : dix cases exactement sont incluses, onze sont communes. Quand les zones de plusieurs maisons se chevauchent, la maison la plus proche l’emporte. À distance égale, la maison attribuée en premier est prioritaire, puis sa date de construction et son identifiant départagent les éventuelles égalités restantes.
+
+La propriété de la récolte est calculée depuis la position et l’attribution actuelles des maisons. Une attribution, un déplacement ou une démolition actualise donc immédiatement les droits ; les parcelles et leurs cultures sont conservées. Le contrôle est fait dans l’action serveur au moment de récolter, sous le même verrou que les constructions/déplacements. Le maire et les administrateurs n’ont pas d’exception pour prendre une récolte privée. Le semis et le nettoyage des plantes fanées conservent leurs règles existantes.
+
+La fiche de la parcelle indique son propriétaire ou son caractère commun ; le bouton de récolte est désactivé pour les autres habitants. Les parcelles privées ont aussi un contour vert lorsqu’elles vous appartiennent, doré autrement. Le serveur reste chargé de valider le droit de récolte.
+
+Le maire peut **déplacer gratuitement tous les bâtiments**, quelle que soit l’identité de leur constructeur. Les collisions et la limite du terrain sont conservées ; le déplacement ne change ni le constructeur, ni l’attribution, ni les revenus déjà récupérés, ni l’heure de construction, ni les points. Les constructeurs et administrateurs conservent leurs possibilités de déplacement habituelles.
+
+L’îlot des bannis est reculé de **trois cases vers l’est**, aux colonnes **60 à 62**, lignes **29 à 31**, avec une arrivée en **(61, 30)**. Il reste vide et mesure 3 × 3. Quatre cases d’eau le séparent désormais de la côte. Le dessin de la scène est étendu jusqu’à cet îlot ; l’île principale conserve sa taille et ses emplacements constructibles. Les bannis déjà présents sont décalés de trois cases, sans modifier leur durée d’exil. Le bouton 🏝️ recentre sur sa nouvelle position.
+
+Appliquez **uniquement la migration 11 après les migrations précédentes** dans Supabase SQL Editor, puis déployez le frontend et rechargez les navigateurs. Cette migration ne crédite aucune pièce et ne rejoue pas le cadeau de Cam.
+
+Validation : `tests/plot-property.test.ts` couvre le rayon et ses limites, les zones superposées, le propriétaire distinct du constructeur, les récoltes privées/communes, le déplacement des maisons et d’autres bâtiments, ainsi que la migration des présences sur l’îlot reculé. `tests/property-controls.test.tsx` et les tests navigateur vérifient les indications et boutons de récolte et de déplacement.
