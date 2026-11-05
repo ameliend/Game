@@ -109,7 +109,7 @@ describe('Migration et règles canoniques', () => {
       regrow_seconds: RULES.regrowMs / 1000,
       tree_wood: RULES.treeWood,
       wood_price: RULES.woodPrice,
-      initial_gold: RULES.initialGold,
+      initial_gold: 100, // Migration 1 predates the fresh start in migration 12.
     });
     for (const k of Object.keys(rules.buildings)) {
       const v = BUILDINGS[k as keyof typeof BUILDINGS];

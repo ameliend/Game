@@ -45,7 +45,7 @@ describe('Grille de construction et déplacements', () => {
   });
   it('autorise de déplacer une construction sur ses propres cases', () =>
     expect(buildable(world, 16, 16, 2, 'b')).toBe(true));
-  it('autorise un terrain libre', () => expect(buildable(world, 14, 14, 2)).toBe(true));
+  it('autorise un terrain libre', () => expect(buildable(world, 14, 15, 2)).toBe(true));
   it('contourne une maison sans traverser ses murs', () => {
     const path = pathTo(world, { x: 15, y: 16 }, { x: 18, y: 16 });
     expect(path.length).toBeGreaterThan(3);
@@ -67,9 +67,9 @@ describe('Affichage sûr du chat', () => {
 });
 describe('Configuration économique', () => {
   it('définit les prix et durées demandés', () => {
-    expect(RULES.initialGold).toBe(100);
+    expect(RULES.initialGold).toBe(150);
     expect(RULES.regrowMs).toBe(1_800_000);
     expect(CROPS.strawberry).toMatchObject({ seed: 35, price: 50, yield: 2 });
-    expect(Object.keys(BUILDINGS)).toHaveLength(22);
+    expect(Object.keys(BUILDINGS)).toHaveLength(23);
   });
 });

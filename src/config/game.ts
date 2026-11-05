@@ -1,11 +1,18 @@
 // Shared presentation rules. PostgreSQL's game_rules table is authoritative.
 export const HOURS = 3_600_000;
 export const EXILE_ISLAND = { x: 60, y: 29, size: 3, spawn: { x: 61, y: 30 } } as const;
+// 1,476 land tiles: exactly 75% of the previous 1,968 tiles on this grid.
+export const MAIN_ISLAND = {
+  center: 29.5,
+  radiusX2: 509.028,
+  radiusY2: 433.728,
+  tiles: 1476,
+} as const;
 export const RULES = {
   size: 60,
   treesPerDay: 10,
   spawn: { x: 30, y: 31 },
-  initialGold: 100,
+  initialGold: 150,
   treeWood: 5,
   woodPrice: 4,
   regrowMs: 30 * 60_000,
@@ -22,6 +29,7 @@ export const BUILDINGS = {
   cottage: {
     name: 'Petite maison',
     price: 150,
+    incomeGold: 10,
     points: 10,
     size: 2,
     color: 0xe9a164,
@@ -31,6 +39,7 @@ export const BUILDINGS = {
   house: {
     name: 'Grande maison',
     price: 400,
+    incomeGold: 30,
     points: 25,
     size: 3,
     color: 0xea7c71,
@@ -40,6 +49,7 @@ export const BUILDINGS = {
   bakery: {
     name: 'Boulangerie',
     price: 300,
+    incomeGold: 20,
     points: 20,
     size: 2,
     color: 0xe7b26b,
@@ -49,6 +59,7 @@ export const BUILDINGS = {
   butcher: {
     name: 'Boucherie',
     price: 350,
+    incomeGold: 25,
     points: 20,
     size: 2,
     color: 0xc75b54,
@@ -58,6 +69,7 @@ export const BUILDINGS = {
   pharmacy: {
     name: 'Pharmacie',
     price: 450,
+    incomeGold: 35,
     points: 20,
     size: 2,
     color: 0x559a7c,
@@ -67,6 +79,7 @@ export const BUILDINGS = {
   barber: {
     name: 'Coiffeur',
     price: 250,
+    incomeGold: 15,
     points: 20,
     size: 2,
     color: 0x6c99a1,
@@ -76,6 +89,7 @@ export const BUILDINGS = {
   nail_salon: {
     name: 'Nail saloon',
     price: 250,
+    incomeGold: 15,
     points: 20,
     size: 2,
     color: 0xc78eb3,
@@ -85,6 +99,7 @@ export const BUILDINGS = {
   roy_merlin: {
     name: 'Roy Merlin',
     price: 700,
+    incomeGold: 50,
     points: 20,
     size: 4,
     color: 0x4c9565,
@@ -94,6 +109,7 @@ export const BUILDINGS = {
   chocolatier: {
     name: 'Chocolaterie',
     price: 450,
+    incomeGold: 35,
     points: 20,
     size: 2,
     color: 0x735044,
@@ -103,6 +119,7 @@ export const BUILDINGS = {
   farm: {
     name: 'Ferme',
     price: 400,
+    incomeGold: 30,
     points: 30,
     size: 4,
     color: 0xb35a4b,
@@ -112,6 +129,7 @@ export const BUILDINGS = {
   hotel: {
     name: 'Hôtel',
     price: 900,
+    incomeGold: 60,
     points: 20,
     size: 3,
     color: 0x6d87aa,
@@ -121,6 +139,7 @@ export const BUILDINGS = {
   coffeeshop: {
     name: 'Coffeeshop',
     price: 300,
+    incomeGold: 20,
     points: 20,
     size: 2,
     color: 0xa47c55,
@@ -130,6 +149,7 @@ export const BUILDINGS = {
   sexshop: {
     name: 'Sexshop',
     price: 500,
+    incomeGold: 40,
     points: 20,
     size: 2,
     color: 0x9a5b80,
@@ -139,6 +159,7 @@ export const BUILDINGS = {
   gym: {
     name: 'Salle de sport',
     price: 600,
+    incomeGold: 20,
     points: 20,
     size: 3,
     color: 0x416c91,
@@ -148,6 +169,7 @@ export const BUILDINGS = {
   school: {
     name: 'École',
     price: 600,
+    incomeGold: 45,
     points: 40,
     size: 3,
     color: 0xe4bc6a,
@@ -157,6 +179,7 @@ export const BUILDINGS = {
   supermarket: {
     name: 'Megazone',
     price: 800,
+    incomeGold: 55,
     points: 20,
     size: 4,
     color: 0x3f719e,
@@ -166,6 +189,7 @@ export const BUILDINGS = {
   townhall: {
     name: 'Mairie',
     price: 1000,
+    incomeGold: 0,
     points: 70,
     size: 3,
     color: 0x86a2bc,
@@ -175,6 +199,7 @@ export const BUILDINGS = {
   restaurant: {
     name: 'Restaurant',
     price: 500,
+    incomeGold: 40,
     points: 20,
     size: 2,
     color: 0xd9847d,
@@ -184,6 +209,7 @@ export const BUILDINGS = {
   hospital: {
     name: 'Hôpital',
     price: 1200,
+    incomeGold: 80,
     points: 60,
     size: 3,
     color: 0xb3c8c5,
@@ -217,6 +243,15 @@ export const BUILDINGS = {
     icon: '🪨',
     category: 'Décorations',
   },
+  fence: {
+    name: 'Clôture',
+    price: 1,
+    points: 0,
+    size: 1,
+    color: 0xad8055,
+    icon: '🪵',
+    category: 'Décorations',
+  },
 } as const;
 export type CropKind = keyof typeof CROPS;
 export type BuildingKind = keyof typeof BUILDINGS;
@@ -233,6 +268,7 @@ export const FARM_PLOT = {
 export const PLACEABLES = { ...BUILDINGS, farm_plot: FARM_PLOT };
 
 export const CIVIC_RULES = {
+  defaultRegime: 'capitalism' as const,
   incomeMs: 24 * HOURS,
   incomeGold: 20,
   electionEveryMs: 7 * 24 * HOURS,
@@ -241,3 +277,8 @@ export const CIVIC_RULES = {
   exileMs: 24 * HOURS,
 };
 export const isCommerce = (kind: BuildingKind) => BUILDINGS[kind].category === 'Commerces';
+
+export const buildingIncome = (kind: BuildingKind): number => {
+  const config = BUILDINGS[kind];
+  return 'incomeGold' in config ? config.incomeGold : 0;
+};

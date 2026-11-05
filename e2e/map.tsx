@@ -25,7 +25,7 @@ function Harness() {
   ]);
   const [selection, setSelection] = useState(''),
     [pos, setPos] = useState('30,31'),
-    [place, setPlace] = useState<'cottage' | 'farm_plot' | 'road' | null>(null);
+    [place, setPlace] = useState<'cottage' | 'farm_plot' | 'road' | 'fence' | null>(null);
   (window as any).scene = ref;
   return (
     <div className="game-shell">
@@ -36,6 +36,14 @@ function Harness() {
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
         onPlace={(x, y) => {
           setSelection('place:' + x + ',' + y);
+          if (place === 'fence')
+            setWorld((w) => ({
+              ...w,
+              buildings: [
+                ...w.buildings,
+                { id: `fence:${x},${y}`, kind: 'fence', x, y, size: 1, created_by: 'test' },
+              ],
+            }));
           if (place && !repeatPlacement({ kind: place })) setPlace(null);
         }}
         onPosition={(x, y) => setPos(x + ',' + y)}
@@ -51,6 +59,22 @@ function Harness() {
         <output data-testid="selection">{selection}</output>
         <output data-testid="placement-mode">{place ?? 'none'}</output>
         <button onClick={() => setPlace('road')}>Mode route</button>
+        <button onClick={() => setPlace('fence')}>Mode clôture</button>
+        <button onClick={() => setPlace(null)}>Terminer la pose</button>
+        <button
+          onClick={() =>
+            setWorld((w) => ({
+              ...w,
+              generation: (w.generation ?? 0) + 1,
+              buildings: [],
+              trees: [],
+              plots: [],
+              plantations: [],
+            }))
+          }
+        >
+          Nouveau départ test
+        </button>
         <button
           onClick={() => {
             setVisitors([]);

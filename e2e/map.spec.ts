@@ -164,3 +164,46 @@ test('une étoile de shérif suit le maire local ou un autre habitant', async ({
   });
   await page.screenshot({ path: info.outputPath('etoile-maire.png') });
 });
+
+test('pose plusieurs clôtures consécutives et bloque le passage sur ces cases', async ({
+  page,
+}, info) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await page.getByRole('button', { name: 'Mode clôture', exact: true }).click();
+  for (const [x, y] of [
+    [32, 30],
+    [33, 30],
+    [34, 30],
+  ]) {
+    const p = await coords(page, x, y);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.getByTestId('selection')).toHaveText(`place:${x},${y}`);
+    await expect(page.getByTestId('placement-mode')).toHaveText('fence');
+  }
+  expect(
+    await page.evaluate(
+      () =>
+        (window as any).scene.current.world.buildings.filter((b: any) => b.kind === 'fence').length,
+    ),
+  ).toBe(3);
+  await page.getByRole('button', { name: 'Terminer la pose', exact: true }).click();
+  await page.evaluate(() => (window as any).scene.current.walk(33, 30));
+  await expect(page.getByTestId('position')).toHaveText('30,31');
+  await page.evaluate(() => {
+    const s = (window as any).scene.current;
+    s.focusTile(33, 30);
+    s.cameras.main.setZoom(2);
+  });
+  await page.screenshot({ path: info.outputPath('clotures.png') });
+});
+
+test('le nouveau départ replace l’avatar au point d’arrivée', async ({ page }) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await page.evaluate(() => (window as any).scene.current.walk(31, 31));
+  await expect(page.getByTestId('position')).toHaveText('31,31');
+  await page.getByRole('button', { name: 'Nouveau départ test', exact: true }).click();
+  await expect(page.getByTestId('position')).toHaveText('30,31');
+  expect(await page.evaluate(() => (window as any).scene.current.world.generation)).toBe(1);
+});

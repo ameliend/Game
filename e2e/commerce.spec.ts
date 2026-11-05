@@ -23,7 +23,17 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
     expect(names).toContain('income:' + kind);
   }
   expect(names).toContain('ballot:townhall');
-  for (const name of ['income:bakery', 'ballot:townhall']) {
+  for (const kind of ['cottage', 'farm', 'school', 'hospital'])
+    expect(names).toContain(`income:${kind}`);
+  expect(names).not.toContain('income:townhall');
+  expect(names).not.toContain('income:house');
+  for (const name of [
+    'income:bakery',
+    'income:farm',
+    'income:school',
+    'income:hospital',
+    'ballot:townhall',
+  ]) {
     await page.evaluate((name) => {
       const s = (window as any).scene.current,
         o = s.objects.getByName(name);
@@ -49,7 +59,7 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
     if (info.project.name === 'mobile') await page.touchscreen.tap(p.x, p.y);
     else await page.mouse.click(p.x, p.y);
     await expect(page.getByTestId('commerce-selection')).toHaveText(
-      name === 'income:bakery' ? 'income:bakery' : 'civic:townhall',
+      name === 'ballot:townhall' ? 'civic:townhall' : name,
     );
   }
   await page.evaluate(() => {
