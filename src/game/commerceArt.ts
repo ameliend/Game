@@ -96,6 +96,21 @@ export function drawCommerce(g: Phaser.GameObjects.Graphics, kind: BuildingKind,
     g.lineBetween(-w * 0.3, -12, -w * 0.3, -24);
     g.lineBetween(-w * 0.2, -12, -w * 0.2, -24);
     g.lineBetween(-w * 0.33, -24, -w * 0.17, -24);
+  } else if (kind === 'casino') {
+    // Golden anatomical sign on a velvet-purple casino.
+    g.lineStyle(2, 0x9c6b19);
+    g.fillStyle(0xe9b92e);
+    g.fillEllipse(0, y + 1, 30, 35);
+    g.strokeEllipse(0, y + 1, 30, 35);
+    g.fillStyle(0xffe69a);
+    g.fillEllipse(-6, y - 5, 9, 15);
+    g.lineStyle(2, 0xb18425);
+    g.lineBetween(1, y - 15, 2, y + 13);
+    g.fillStyle(0xffdd67);
+    for (const dx of [-24, 24]) {
+      g.fillCircle(dx, y - 9, 3);
+      g.fillCircle(dx, y + 8, 3);
+    }
   } else if (kind === 'coffeeshop') {
     g.fillStyle(0xfff4d8);
     g.fillRoundedRect(-12, y - 6, 22, 16, 4);

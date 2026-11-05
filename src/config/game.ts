@@ -26,6 +26,16 @@ export const CROPS = {
   strawberry: { name: 'Fraise', seed: 35, price: 50, yield: 2, color: 0xe75e83, emoji: '🍓' },
 } as const;
 export const BUILDINGS = {
+  casino: {
+    name: 'La couille en or',
+    price: 0,
+    incomeGold: 0,
+    points: 0,
+    size: 3,
+    color: 0x553775,
+    icon: '🎰',
+    category: 'Commerces',
+  },
   cottage: {
     name: 'Petite maison',
     price: 150,

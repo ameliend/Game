@@ -70,6 +70,6 @@ describe('Configuration économique', () => {
     expect(RULES.initialGold).toBe(150);
     expect(RULES.regrowMs).toBe(1_800_000);
     expect(CROPS.strawberry).toMatchObject({ seed: 35, price: 50, yield: 2 });
-    expect(Object.keys(BUILDINGS)).toHaveLength(23);
+    expect(Object.keys(BUILDINGS)).toHaveLength(24);
   });
 });

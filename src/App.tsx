@@ -61,6 +61,7 @@ import { canMoveBuilding } from './utils/property';
 import { CivicPanel } from './components/CivicPanel';
 import { incomeStatus, effectiveIncome, electionOpen } from './utils/civic';
 import { Modal } from './components/Modal';
+import { LuckModal } from './components/LuckModal';
 import { Chat } from './components/Chat';
 const GameCanvas = lazy(() => import('./game/GameCanvas').then((m) => ({ default: m.GameCanvas })));
 import type { IslandScene } from './game/IslandScene';
@@ -77,6 +78,7 @@ type Panel =
   | null;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Une erreur est survenue.');
 export default function App() {
+  const [managedCasino, setManagedCasino] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [authReady, setAuthReady] = useState(!configured),
     [recovery, setRecovery] = useState(false),
@@ -290,7 +292,10 @@ export default function App() {
     setSelection(null);
     setPlacement(null);
   }, [world?.island.id, world?.generation, Boolean(world?.exile)]);
-  useEffect(() => setDemolition(null), [selection?.id]);
+  useEffect(() => {
+    setDemolition(null);
+    setManagedCasino(null);
+  }, [selection?.id]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
     if (!world) return;
@@ -682,239 +687,264 @@ export default function App() {
           Maintenance en attente : {maintenanceError}. La carte reste accessible.
         </div>
       )}
-      {selection && selection.type !== 'ground' && !placement && (
-        <section className="selection-card">
-          <button
-            className="close-selection"
-            aria-label="Fermer la sélection"
-            onClick={() => setSelection(null)}
-          >
-            <X size={16} />
-          </button>
-          {tree && (
-            <>
-              <span className="object-emoji">🌳</span>
-              <h3>Un arbre généreux</h3>
-              <p>5 bois à récolter · Repousse ailleurs après 30 minutes.</p>
-              <button
-                className="primary"
-                disabled={busy || !network}
-                onClick={() =>
-                  void perform(
-                    () => {
-                      sceneRef.current?.animateChop(tree.id);
-                      return economyService.chop(tree.id);
-                    },
-                    '+5 bois récoltés',
-                    true,
-                  )
-                }
-              >
-                <Axe size={16} />
-                Couper l’arbre
-              </button>
-            </>
-          )}
-          {plot && (
-            <>
-              <span className="object-emoji">{plant ? CROPS[plant.crop].emoji : '🌱'}</span>
-              <h3>{plant ? CROPS[plant.crop].name : 'Une parcelle fertile'}</h3>
-              <HarvestControls
-                plot={plot}
-                userId={session.user.id}
-                mature={state === 'mature'}
-                disabled={busy || !network}
-                onHarvest={() => {
-                  if (plant)
+      {selection &&
+        !placement &&
+        !world.exile &&
+        (selection.type === 'pol' ||
+          (building?.kind === 'casino' && managedCasino !== building.id)) && (
+          <LuckModal
+            key={String(selection.id)}
+            kind={selection.type === 'pol' ? 'pol' : 'casino'}
+            id={String(selection.id)}
+            gold={world.island.gold}
+            available={network && !busy}
+            onClose={() => {
+              setManagedCasino(null);
+              setSelection(null);
+            }}
+            onRefresh={load}
+            onManage={building?.kind === 'casino' ? () => setManagedCasino(building.id) : undefined}
+          />
+        )}
+      {selection &&
+        selection.type !== 'ground' &&
+        selection.type !== 'pol' &&
+        (building?.kind !== 'casino' || managedCasino === building.id) &&
+        !placement && (
+          <section className="selection-card">
+            <button
+              className="close-selection"
+              aria-label="Fermer la sélection"
+              onClick={() => setSelection(null)}
+            >
+              <X size={16} />
+            </button>
+            {tree && (
+              <>
+                <span className="object-emoji">🌳</span>
+                <h3>Un arbre généreux</h3>
+                <p>5 bois à récolter · Repousse ailleurs après 30 minutes.</p>
+                <button
+                  className="primary"
+                  disabled={busy || !network}
+                  onClick={() =>
                     void perform(
-                      () => agricultureService.harvest(plot.id),
-                      '+2 ' + CROPS[plant.crop].name.toLowerCase() + ' récoltées',
+                      () => {
+                        sceneRef.current?.animateChop(tree.id);
+                        return economyService.chop(tree.id);
+                      },
+                      '+5 bois récoltés',
                       true,
-                    );
-                }}
-              />
-              {plant ? (
-                <>
-                  <p>
-                    {state === 'withered'
-                      ? 'Plantation fanée · sans valeur'
-                      : state === 'mature'
-                        ? 'Prête à récolter !'
-                        : 'En croissance'}
-                  </p>
-                  {state !== 'withered' && (
-                    <div className="countdown">
-                      {countdown(
-                        (state === 'mature' ? RULES.witherMs : RULES.matureMs) -
-                          (now - Date.parse(plant.planted_at)),
-                      )}
-                      <small>avant {state === 'mature' ? 'fanaison' : 'maturité'}</small>
-                    </div>
-                  )}
-                  {state === 'withered' && (
-                    <button
-                      className="primary"
-                      disabled={busy || !network}
-                      onClick={() =>
-                        void perform(
-                          () => agricultureService.clear(plot.id),
-                          'Parcelle libérée',
-                          true,
-                        )
-                      }
-                    >
-                      Retirer gratuitement
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p>8 h pour grandir, 4 h pour récolter.</p>
-                  <div className="seed-options">
-                    {Object.entries(CROPS).map(([key, c]) => (
+                    )
+                  }
+                >
+                  <Axe size={16} />
+                  Couper l’arbre
+                </button>
+              </>
+            )}
+            {plot && (
+              <>
+                <span className="object-emoji">{plant ? CROPS[plant.crop].emoji : '🌱'}</span>
+                <h3>{plant ? CROPS[plant.crop].name : 'Une parcelle fertile'}</h3>
+                <HarvestControls
+                  plot={plot}
+                  userId={session.user.id}
+                  mature={state === 'mature'}
+                  disabled={busy || !network}
+                  onHarvest={() => {
+                    if (plant)
+                      void perform(
+                        () => agricultureService.harvest(plot.id),
+                        '+2 ' + CROPS[plant.crop].name.toLowerCase() + ' récoltées',
+                        true,
+                      );
+                  }}
+                />
+                {plant ? (
+                  <>
+                    <p>
+                      {state === 'withered'
+                        ? 'Plantation fanée · sans valeur'
+                        : state === 'mature'
+                          ? 'Prête à récolter !'
+                          : 'En croissance'}
+                    </p>
+                    {state !== 'withered' && (
+                      <div className="countdown">
+                        {countdown(
+                          (state === 'mature' ? RULES.witherMs : RULES.matureMs) -
+                            (now - Date.parse(plant.planted_at)),
+                        )}
+                        <small>avant {state === 'mature' ? 'fanaison' : 'maturité'}</small>
+                      </div>
+                    )}
+                    {state === 'withered' && (
                       <button
-                        key={key}
-                        disabled={busy || !network || world.island.gold < c.seed}
+                        className="primary"
+                        disabled={busy || !network}
                         onClick={() =>
                           void perform(
-                            () => agricultureService.plant(plot.id, key),
-                            'Petite graine, grande aventure !',
+                            () => agricultureService.clear(plot.id),
+                            'Parcelle libérée',
                             true,
                           )
                         }
                       >
-                        <span>
-                          {c.emoji} {c.name}
-                        </span>
-                        <strong>{c.seed} 🪙</strong>
+                        Retirer gratuitement
                       </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {building && (
-            <>
-              <span className="object-emoji">{BUILDINGS[building.kind].icon}</span>
-              <h3>{BUILDINGS[building.kind].name}</h3>
-              <p>
-                Construit par{' '}
-                {players.find((p) => p.id === building.created_by)?.username ??
-                  'un ancien habitant'}
-              </p>
-              {['cottage', 'house'].includes(building.kind) && (
-                <HouseAssignment
-                  key={building.id}
-                  building={building}
-                  players={players}
-                  disabled={
-                    busy ||
-                    !network ||
-                    (building.created_by !== session.user.id && !world.profile.is_admin)
-                  }
-                  onAssign={(userId) =>
-                    void perform(
-                      () => constructionService.assign(building.id, userId),
-                      'Maison attribuée définitivement !',
-                    )
-                  }
-                />
-              )}
-
-              {effectiveIncome(building) > 0 &&
-                (() => {
-                  const income = incomeStatus(
-                    building,
-                    now,
-                    world.governance?.regime ?? CIVIC_RULES.defaultRegime,
-                    session.user.id,
-                  );
-                  return (
-                    <div className="commerce-income">
-                      <p>Revenu : {income.amount} pièces / 24 h</p>
-                      {income.ready ? (
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p>8 h pour grandir, 4 h pour récolter.</p>
+                    <div className="seed-options">
+                      {Object.entries(CROPS).map(([key, c]) => (
                         <button
-                          className="primary"
-                          disabled={busy || !network || !income.canClaim}
+                          key={key}
+                          disabled={busy || !network || world.island.gold < c.seed}
                           onClick={() =>
                             void perform(
-                              () => civicService.claim(building.id),
-                              `+${income.amount} pièces récupérées !`,
-                            )
-                          }
-                        >
-                          🪙 {income.canClaim ? 'Récupérer le revenu' : 'Réservé au constructeur'}
-                        </button>
-                      ) : (
-                        <p>
-                          Prochaine pièce dans <strong>{countdown(income.remaining)}</strong>
-                        </p>
-                      )}
-                    </div>
-                  );
-                })()}
-              {building.kind === 'townhall' && (
-                <button
-                  className="primary"
-                  onClick={() => {
-                    setSelection(null);
-                    setPanel('civic');
-                  }}
-                >
-                  🗳️ Élections et régime économique
-                </button>
-              )}
-              {(building.kind === 'townhall' ||
-                ((building.kind === 'house' || building.kind === 'cottage') &&
-                  building.assigned_to)) && <p>Aucun revenu pour ce bâtiment.</p>}
-              <p>
-                {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
-              </p>
-              <button
-                className="primary"
-                disabled={busy || !network || !canMoveBuilding(world, building)}
-                onClick={() => startBuild(building.kind, building.id)}
-              >
-                <Move size={16} />
-                Déplacer gratuitement
-              </button>
-              {world.governance?.mayor_id === session.user.id &&
-                (building.kind === 'cottage' ||
-                  building.kind === 'house' ||
-                  isCommerce(building.kind)) && (
-                  <div>
-                    {demolition === building.id ? (
-                      <>
-                        <p>Cette démolition est définitive et ne rembourse pas le constructeur.</p>
-                        <button
-                          className="primary"
-                          disabled={busy}
-                          onClick={() =>
-                            void perform(
-                              () => civicService.demolish(building.id),
-                              'Bâtiment démoli.',
+                              () => agricultureService.plant(plot.id, key),
+                              'Petite graine, grande aventure !',
                               true,
                             )
                           }
                         >
-                          Confirmer la démolition
+                          <span>
+                            {c.emoji} {c.name}
+                          </span>
+                          <strong>{c.seed} 🪙</strong>
                         </button>
-                        <button className="text-button" onClick={() => setDemolition(null)}>
-                          Annuler
-                        </button>
-                      </>
-                    ) : (
-                      <button className="text-button" onClick={() => setDemolition(building.id)}>
-                        Démolir · pouvoir du maire
-                      </button>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  </>
                 )}
-            </>
-          )}
-        </section>
-      )}
+              </>
+            )}
+            {building && (
+              <>
+                <span className="object-emoji">{BUILDINGS[building.kind].icon}</span>
+                <h3>{BUILDINGS[building.kind].name}</h3>
+                <p>
+                  Construit par{' '}
+                  {players.find((p) => p.id === building.created_by)?.username ??
+                    'un ancien habitant'}
+                </p>
+                {['cottage', 'house'].includes(building.kind) && (
+                  <HouseAssignment
+                    key={building.id}
+                    building={building}
+                    players={players}
+                    disabled={
+                      busy ||
+                      !network ||
+                      (building.created_by !== session.user.id && !world.profile.is_admin)
+                    }
+                    onAssign={(userId) =>
+                      void perform(
+                        () => constructionService.assign(building.id, userId),
+                        'Maison attribuée définitivement !',
+                      )
+                    }
+                  />
+                )}
+
+                {effectiveIncome(building) > 0 &&
+                  (() => {
+                    const income = incomeStatus(
+                      building,
+                      now,
+                      world.governance?.regime ?? CIVIC_RULES.defaultRegime,
+                      session.user.id,
+                    );
+                    return (
+                      <div className="commerce-income">
+                        <p>Revenu : {income.amount} pièces / 24 h</p>
+                        {income.ready ? (
+                          <button
+                            className="primary"
+                            disabled={busy || !network || !income.canClaim}
+                            onClick={() =>
+                              void perform(
+                                () => civicService.claim(building.id),
+                                `+${income.amount} pièces récupérées !`,
+                              )
+                            }
+                          >
+                            🪙 {income.canClaim ? 'Récupérer le revenu' : 'Réservé au constructeur'}
+                          </button>
+                        ) : (
+                          <p>
+                            Prochaine pièce dans <strong>{countdown(income.remaining)}</strong>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
+                {building.kind === 'townhall' && (
+                  <button
+                    className="primary"
+                    onClick={() => {
+                      setSelection(null);
+                      setPanel('civic');
+                    }}
+                  >
+                    🗳️ Élections et régime économique
+                  </button>
+                )}
+                {(building.kind === 'townhall' ||
+                  ((building.kind === 'house' || building.kind === 'cottage') &&
+                    building.assigned_to)) && <p>Aucun revenu pour ce bâtiment.</p>}
+                <p>
+                  {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
+                </p>
+                <button
+                  className="primary"
+                  disabled={busy || !network || !canMoveBuilding(world, building)}
+                  onClick={() => startBuild(building.kind, building.id)}
+                >
+                  <Move size={16} />
+                  Déplacer gratuitement
+                </button>
+                {world.governance?.mayor_id === session.user.id &&
+                  (building.kind === 'cottage' ||
+                    building.kind === 'house' ||
+                    isCommerce(building.kind)) && (
+                    <div>
+                      {demolition === building.id ? (
+                        <>
+                          <p>
+                            Cette démolition est définitive et ne rembourse pas le constructeur.
+                          </p>
+                          <button
+                            className="primary"
+                            disabled={busy}
+                            onClick={() =>
+                              void perform(
+                                () => civicService.demolish(building.id),
+                                'Bâtiment démoli.',
+                                true,
+                              )
+                            }
+                          >
+                            Confirmer la démolition
+                          </button>
+                          <button className="text-button" onClick={() => setDemolition(null)}>
+                            Annuler
+                          </button>
+                        </>
+                      ) : (
+                        <button className="text-button" onClick={() => setDemolition(building.id)}>
+                          Démolir · pouvoir du maire
+                        </button>
+                      )}
+                    </div>
+                  )}
+              </>
+            )}
+          </section>
+        )}
       <Chat userId={session.user.id} admin={world.profile.is_admin} notify={notify} />
       <div className="bottom-caption">
         <span>

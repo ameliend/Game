@@ -8,7 +8,7 @@ export const islandService = {
 export const action = (
   type: string,
   payload: Record<string, unknown> = {},
-  requestId = crypto.randomUUID(),
+  requestId: string = crypto.randomUUID(),
 ) => rpc('game_action', { p_action: type, p_payload: payload, p_request: requestId });
 export const civicService = {
   refresh: () => rpc('refresh_world'),

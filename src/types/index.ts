@@ -26,6 +26,7 @@ export type Building = {
   income_started_at?: string | null;
 };
 export type World = {
+  pol?: { id: string; x: number; y: number; until: string } | null;
   generation?: number;
   island: Island;
   profile: Profile;
@@ -55,7 +56,7 @@ export type Message = {
   created_at: string;
 };
 export type Selection = {
-  type: 'tree' | 'plot' | 'building' | 'ground' | 'income' | 'civic';
+  type: 'tree' | 'plot' | 'building' | 'ground' | 'income' | 'civic' | 'pol';
   id?: number | string;
   x: number;
   y: number;
