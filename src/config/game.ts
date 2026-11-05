@@ -1,5 +1,6 @@
 // Shared presentation rules. PostgreSQL's game_rules table is authoritative.
 export const HOURS = 3_600_000;
+export const EXILE_ISLAND = { x: 57, y: 29, size: 3, spawn: { x: 58, y: 30 } } as const;
 export const RULES = {
   size: 60,
   treesPerDay: 10,
@@ -133,6 +134,15 @@ export const BUILDINGS = {
     size: 2,
     color: 0x9a5b80,
     icon: '🩲',
+    category: 'Commerces',
+  },
+  gym: {
+    name: 'Salle de sport',
+    price: 600,
+    points: 20,
+    size: 3,
+    color: 0x416c91,
+    icon: '🏋️',
     category: 'Commerces',
   },
   school: {

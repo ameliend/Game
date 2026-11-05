@@ -9,7 +9,7 @@ export const residentsService = {
 };
 // Database heartbeats provide authenticated identity and a polling fallback when a
 // WebSocket cannot connect. A presence list never depends solely on a sync event.
-export function useResidents(userId: string | undefined) {
+export function useResidents(userId: string | undefined, spawn = RULES.spawn) {
   const [residents, setResidents] = useState<Resident[]>([]),
     [error, setError] = useState('');
   const position = useRef({ ...RULES.spawn }),
@@ -25,7 +25,7 @@ export function useResidents(userId: string | undefined) {
       reading = false,
       writing = false;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    position.current = { ...RULES.spawn };
+    position.current = { ...spawn };
     lastPublish.current = 0;
     const read = async () => {
       if (!alive || reading) return;
@@ -92,7 +92,7 @@ export function useResidents(userId: string | undefined) {
       document.removeEventListener('visibilitychange', visible);
       void client().removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, spawn.x, spawn.y]);
   const updatePosition = useCallback((x: number, y: number) => {
     position.current = { x, y };
     clearTimeout(trailing.current);

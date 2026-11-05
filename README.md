@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050009_recovery_management.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 9 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050010_exile_election_gym.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 10 dans cet ordre.
 
-Sur une base neuve, exécutez les neuf migrations, dans l’ordre :
+Sur une base neuve, exécutez les dix migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -31,6 +31,7 @@ Sur une base neuve, exécutez les neuf migrations, dans l’ordre :
 7. `202611050007_residents_random_regrowth.sql`
 8. `202611050008_more_buildings.sql`
 9. `202611050009_recovery_management.sql`
+10. `202611050010_exile_election_gym.sql`
 
 La migration 2 :
 
@@ -291,3 +292,21 @@ Un exil adopté dure **24 h à partir de la clôture du vote**. L’habitant res
 La migration conserve les constructions existantes, les anciens votes et les attributions. Appliquez `202611050009_recovery_management.sql` dans Supabase SQL Editor après les migrations 1 à 8, puis déployez le frontend. Rechargez les navigateurs déjà ouverts pour utiliser la nouvelle version. Les opérations de maintenance Cron existantes utilisent automatiquement les fonctions mises à jour ; aucun secret supplémentaire n’est nécessaire.
 
 Validation ciblée : `recovery-catalogue.test.ts`, `connection-status.test.ts`, `village-management.test.ts` et `exile-map.test.ts`. Les fixtures navigateur vérifient aussi un catalogue utilisable malgré un faux indicateur hors ligne, les nouvelles enseignes, les routes en continu et le rendu du petit îlot. La correction de la version hébergée nécessite l’application de la migration puis une nouvelle vérification sur votre projet Supabase.
+
+## Îlot visible, fin anticipée du scrutin, étoile et salle de sport (migration 10)
+
+La carte affiche désormais **les deux îles dans la même scène**, pour tous les habitants. L’îlot d’exil est un carré de **3 × 3**, colonnes 57 à 59 et lignes 29 à 31, séparé de la côte est par une case d’eau. Il ne contient ni ressource ni construction. Le bouton 🏝️ permet de le retrouver et de zoomer dessus.
+
+Les habitants bannis arrivent en (58, 30) et peuvent marcher uniquement sur ces neuf cases. Les autres habitants restent sur l’île principale. Les avatars des bannis connectés sont visibles sur l’îlot, avec leur nom. Une personne en exil peut observer l’île principale ; ses actions y restent suspendues. À l’expiration des 24 h, elle revient au point d’arrivée principal. La présence serveur recale aussi les positions lors du début ou de la fin d’un exil.
+
+L’électorat municipal est enregistré à l’ouverture du scrutin : tous les habitants inscrits à cet instant, même hors ligne, sauf les personnes en exil. Les nouveaux inscrits participent au scrutin suivant. **Le dernier vote clôture immédiatement le tour**, sans attendre les 24 h. Une égalité ouvre un nouveau tour d’une heure entre les candidats à égalité, avec le même électorat ; ce tour peut également se terminer plus tôt si tous ont voté. Les habitants placés en exil ne bloquent pas la clôture. Sans vote complet, le délai initial reste appliqué. Le mandat de sept jours part de la clôture effective qui a désigné le maire.
+
+Une petite étoile de shérif dorée à six branches apparaît au-dessus de l’avatar du maire. Elle est visible par lui-même et par les autres habitants, et suit les changements de maire sans reconnexion.
+
+La **Salle de sport** est ajoutée aux Commerces : **600 pièces, 3 × 3, 20 points**, enseigne avec une haltère et équipement visible en vitrine. Elle utilise le revenu de commerce de 20 pièces par période de 24 h et les règles économiques du village.
+
+La migration contient aussi le cadeau demandé de **500 pièces pour le compte `Cam`** (recherche exacte du pseudo, sans tenir compte des majuscules). Le crédit est journalisé dans `economy_transactions`, avec un identifiant fixe : relancer le SQL n’ajoute pas un second cadeau. Si Cam est absent, un message SQL le signale sans modifier les autres comptes ; on peut relancer la migration après la création de ce compte.
+
+Appliquez `202611050010_exile_election_gym.sql` après les migrations 1 à 9, puis déployez le frontend. Le crédit de Cam est effectif uniquement lorsque ce SQL a été exécuté sur la base hébergée. Aucun accès administrateur à la base hébergée n’est disponible dans l’environnement de développement.
+
+Validation : `tests/island-update.test.ts` couvre le crédit unique, la fin anticipée et le nouveau tour, le mandat, le placement des présences et le retour, ainsi que l’achat et le revenu de la salle de sport. `tests/exile-map.test.ts` couvre les neuf cases et les déplacements entre les deux zones. Les tests navigateur vérifient aussi l’îlot, l’étoile locale/distante et la salle de sport sur ordinateur et téléphone.

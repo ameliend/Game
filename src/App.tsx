@@ -44,6 +44,7 @@ import {
   PLACEABLES,
   isCommerce,
   CIVIC_RULES,
+  EXILE_ISLAND,
 } from './config/game';
 import type { BuildingKind, CropKind } from './config/game';
 import type { Avatar, Placement, Player, Selection, World } from './types';
@@ -201,7 +202,10 @@ export default function App() {
     residents: online,
     error: presenceError,
     updatePosition: onPosition,
-  } = useResidents(world && !world.exile ? session?.user.id : undefined);
+  } = useResidents(
+    world ? session?.user.id : undefined,
+    world?.exile ? EXILE_ISLAND.spawn : RULES.spawn,
+  );
   useEffect(() => {
     if (!world || !session) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -269,7 +273,7 @@ export default function App() {
       alive = false;
       clearInterval(timer);
     };
-  }, [world?.island.id, session?.user.id, load]);
+  }, [world?.island.id, Boolean(world?.exile), session?.user.id, load]);
   useEffect(() => {
     if (!world?.exile) return;
     const timer = setTimeout(
@@ -282,7 +286,7 @@ export default function App() {
     setPanel(null);
     setSelection(null);
     setPlacement(null);
-  }, [world?.island.id]);
+  }, [world?.island.id, Boolean(world?.exile)]);
   useEffect(() => setDemolition(null), [selection?.id]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
@@ -458,6 +462,10 @@ export default function App() {
           placement={placement}
           offset={offset}
           onSelect={(s) => {
+            if (world.exile && s.type !== 'ground') {
+              notify('Les actions sur l’île principale sont suspendues pendant votre exil.');
+              return;
+            }
             if (s.type === 'civic') {
               setPanel('civic');
               return;
@@ -561,7 +569,7 @@ export default function App() {
           ? 'Îlot d’exil sans ressources'
           : `Île commune · ${RULES.size} × ${RULES.size} cases`}
       </div>
-      {tutorial && !placement && (
+      {tutorial && !placement && !world.exile && (
         <section className="tutorial">
           <div className="tutorial-icon">
             <Sprout size={24} />
@@ -616,6 +624,16 @@ export default function App() {
         <span />
         <button aria-label="Recentrer l’île" onClick={() => sceneRef.current?.center()}>
           <Compass />
+        </button>
+        <button
+          aria-label="Voir l’îlot d’exil de 3 sur 3"
+          title="Îlot d’exil · 3 × 3"
+          onClick={() => {
+            sceneRef.current?.focusTile(EXILE_ISLAND.spawn.x, EXILE_ISLAND.spawn.y);
+            sceneRef.current?.cameras.main.setZoom(1.5);
+          }}
+        >
+          <span aria-hidden="true">🏝️</span>
         </button>
         <button aria-label="Actions accessibles au clavier" onClick={() => setPanel('actions')}>
           <Map />
@@ -1190,7 +1208,13 @@ export default function App() {
               </button>
             </>
           )}
-          {panel === 'actions' && (
+          {panel === 'actions' && world.exile && (
+            <p className="muted">
+              Cet îlot de 3 × 3 ne contient aucune ressource. Les actions sur l’île principale
+              reprendront à la fin de votre exil.
+            </p>
+          )}
+          {panel === 'actions' && !world.exile && (
             <>
               <p className="muted">
                 Accédez aux ressources sans utiliser la carte. Les coordonnées permettent aussi de

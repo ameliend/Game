@@ -1,11 +1,19 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CROPS, RULES, PLACEABLES, isCommerce } from '../config/game';
+import { BUILDINGS, CROPS, RULES, PLACEABLES, EXILE_ISLAND, isCommerce } from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
 import { drawTownHall, drawFarm, TOWNHALL_TOP } from './landmarkArt';
 import { drawCommerce, commerceSignY } from './commerceArt';
 import { residentOffset } from '../utils/residents';
 import { incomeStatus, electionOpen } from '../utils/civic';
-import { buildable, cropState, worldLand, pathTo, walkable } from '../utils/rules';
+import {
+  buildable,
+  cropState,
+  worldLand,
+  exileLand,
+  playerSpawn,
+  pathTo,
+  walkable,
+} from '../utils/rules';
 const W = 48,
   H = 24;
 const iso = (x: number, y: number) => ({ x: ((x - y) * W) / 2, y: ((x + y) * H) / 2 });
@@ -46,13 +54,17 @@ export class IslandScene extends Phaser.Scene {
     this.objects = this.add.container();
     this.ghost = this.add.graphics().setDepth(2000);
     this.drawTerrain();
-    this.avatar = this.makeAvatar(this.playerAvatar ?? this.world.avatar);
+    this.avatar = this.makeAvatar(
+      this.playerAvatar ?? this.world.avatar,
+      this.world.governance?.mayor_id === this.world.profile.id,
+    );
     this.avatar.setDepth(1500);
-    this.placeAvatar(RULES.spawn.x, RULES.spawn.y);
+    const spawn = playerSpawn(this.world);
+    this.placeAvatar(spawn.x, spawn.y);
+    this.onPosition?.(spawn.x, spawn.y);
     this.redraw();
     this.setGuests(this.pendingGuests);
-    this.cameras.main.centerOn(0, ((RULES.size - 1) * H) / 2);
-    this.fit();
+    this.center();
     this.scale.on('resize', this.fit, this);
     this.input.addPointer(2);
     this.input.keyboard?.disableGlobalCapture();
@@ -130,7 +142,8 @@ export class IslandScene extends Phaser.Scene {
     this.cameras.main.centerOn(p.x, p.y);
   }
   center() {
-    this.cameras.main.centerOn(0, ((RULES.size - 1) * H) / 2);
+    if (this.world.exile) this.focusTile(EXILE_ISLAND.spawn.x, EXILE_ISLAND.spawn.y);
+    else this.cameras.main.centerOn(0, ((RULES.size - 1) * H) / 2);
     this.fit();
   }
   polygon(g: Phaser.GameObjects.Graphics, pts: number[], color: number, alpha = 1) {
@@ -182,15 +195,14 @@ export class IslandScene extends Phaser.Scene {
             p.y,
             W,
             H,
-            edge ? 0xf0db9e : (x * 7 + y * 3) % 5 === 0 ? 0x89b77b : 0x92be80,
+            exileLand(x, y) || edge ? 0xf0db9e : (x * 7 + y * 3) % 5 === 0 ? 0x89b77b : 0x92be80,
           );
-          if (!edge && (x * 13 + y * 7) % 17 === 0) {
+          if (!edge && !exileLand(x, y) && (x * 13 + y * 7) % 17 === 0) {
             g.lineStyle(1, 0x639765, 0.5);
             g.lineBetween(p.x - 3, p.y, p.x - 1, p.y - 3);
             g.lineBetween(p.x + 2, p.y, p.x + 4, p.y - 2);
           }
         }
-    if (this.world.exile) return;
     // Decorative boulders sit outside the playable land.
     for (const [x, y] of [
       [2, 25],
@@ -551,10 +563,15 @@ export class IslandScene extends Phaser.Scene {
     this.objects.sort('depth');
     if (this.avatar) {
       this.avatar.removeAll(true);
-      this.drawPerson(this.avatar, this.playerAvatar ?? this.world.avatar);
+      this.drawPerson(
+        this.avatar,
+        this.playerAvatar ?? this.world.avatar,
+        this.world.governance?.mayor_id === this.world.profile.id,
+      );
     }
+    this.setGuests(this.pendingGuests);
   }
-  drawPerson(c: Phaser.GameObjects.Container, a: Avatar) {
+  drawPerson(c: Phaser.GameObjects.Container, a: Avatar, mayor = false) {
     const g = this.add.graphics();
     g.fillStyle(0x315847, 0.24);
     g.fillEllipse(0, 2, 19, 8);
@@ -575,10 +592,31 @@ export class IslandScene extends Phaser.Scene {
     g.fillCircle(-3, -37, 1);
     g.fillCircle(4, -37, 1);
     c.add(g);
+    if (mayor) {
+      const badge = this.add.graphics().setName('mayor-star');
+      const points: number[] = [];
+      for (let i = 0; i < 12; i++) {
+        const angle = -Math.PI / 2 + (i * Math.PI) / 6;
+        const radius = i % 2 ? 5 : 10;
+        points.push(Math.cos(angle) * radius, -87 + Math.sin(angle) * radius);
+      }
+      this.polygon(badge, points, 0xf2c44e);
+      badge.lineStyle(1, 0x9c7025);
+      badge.strokePoints(
+        points.reduce<Phaser.Geom.Point[]>(
+          (p, _, i) => (i % 2 ? p : [...p, new Phaser.Geom.Point(points[i], points[i + 1])]),
+          [],
+        ),
+        true,
+      );
+      badge.fillStyle(0xffed9a);
+      badge.fillCircle(0, -87, 3);
+      c.add(badge);
+    }
   }
-  makeAvatar(a: Avatar) {
+  makeAvatar(a: Avatar, mayor = false) {
     const c = this.add.container();
-    this.drawPerson(c, a);
+    this.drawPerson(c, a, mayor);
     return c;
   }
   placeAvatar(x: number, y: number) {
@@ -587,7 +625,8 @@ export class IslandScene extends Phaser.Scene {
     this.avatar.setPosition(p.x, p.y);
   }
   setWorld(w: World) {
-    const changed = this.world?.island.id !== w.island.id;
+    const changed =
+      this.world?.island.id !== w.island.id || Boolean(this.world?.exile) !== Boolean(w.exile);
     this.world = w;
     if (this.sys.isActive()) {
       this.redraw();
@@ -596,13 +635,17 @@ export class IslandScene extends Phaser.Scene {
         this.drawTerrain();
         this.tweens.killTweensOf(this.avatar);
         this.walking = false;
-        this.placeAvatar(RULES.spawn.x, RULES.spawn.y);
+        const spawn = playerSpawn(w);
+        this.placeAvatar(spawn.x, spawn.y);
+        this.onPosition?.(spawn.x, spawn.y);
         this.center();
+        this.setGuests(this.pendingGuests);
       }
     }
   }
   select(x: number, y: number) {
     if (!worldLand(this.world, x, y)) return;
+    if (this.world.exile && !exileLand(x, y)) return;
     if (this.placement) {
       this.onPlace(x, y);
       return;
@@ -701,7 +744,8 @@ export class IslandScene extends Phaser.Scene {
     for (const p of guests) {
       let c = this.guests.get(p.id);
       let fresh = false;
-      const avatarKey = JSON.stringify(p.avatar) + p.username;
+      const mayor = this.world.governance?.mayor_id === p.id;
+      const avatarKey = JSON.stringify(p.avatar) + p.username + mayor;
       if (c && c.getData('avatarKey') !== avatarKey) {
         this.tweens.killTweensOf(c);
         c.destroy();
@@ -709,7 +753,7 @@ export class IslandScene extends Phaser.Scene {
         c = undefined;
       }
       if (!c) {
-        c = this.makeAvatar(p.avatar).setDepth(1499).setName(`resident:${p.id}`);
+        c = this.makeAvatar(p.avatar, mayor).setDepth(1499).setName(`resident:${p.id}`);
         c.add(
           this.add
             .text(0, -66, p.username, {
@@ -730,6 +774,8 @@ export class IslandScene extends Phaser.Scene {
         y = pt.y;
       const label = c.list.find((o) => o.type === 'Text') as Phaser.GameObjects.Text | undefined;
       label?.setY(offset.labelY);
+      const badge = c.getByName('mayor-star') as Phaser.GameObjects.Graphics | null;
+      badge?.setY(offset.labelY + 66);
       if (fresh) c.setPosition(x, y);
       else if (c.x !== x || c.y !== y) {
         this.tweens.killTweensOf(c);

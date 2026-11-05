@@ -114,22 +114,53 @@ test('pose plusieurs carrés de route sans quitter le mode construction', async 
   }
 });
 
-test('l’îlot temporaire remplace la grande carte et ne contient aucune ressource', async ({
+test('l’îlot de neuf cases reste voisin de la grande île et reçoit les bannis', async ({
   page,
-}) => {
+}, info) => {
   await page.goto('/e2e/map.html');
   await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
-  await page.getByRole('button', { name: 'Îlot test' }).click();
+  await page.getByRole('button', { name: 'Habitant banni', exact: true }).click();
   await expect
-    .poll(() => page.evaluate(() => (window as any).scene.current.world.island.id))
-    .toBe('exile:test');
+    .poll(() => page.evaluate(() => (window as any).scene.current.guests.get('other')?.x))
+    .toBe((58 - 30) * 24);
+  await page.getByRole('button', { name: 'Îlot test' }).click();
+  await expect(page.getByTestId('position')).toHaveText('58,30');
   expect(
     await page.evaluate(() => {
       const s = (window as any).scene.current;
-      return s.world.trees.length + s.world.plots.length + s.world.buildings.length;
+      return s.world.trees.length + s.world.plots.length;
     }),
-  ).toBe(0);
+  ).toBe(2);
   expect(await page.evaluate(() => (window as any).scene.current.cameras.main.zoom)).toBe(1.5);
-  await page.evaluate(() => (window as any).scene.current.walk(45, 45));
+  await page.evaluate(() => (window as any).scene.current.walk(30, 31));
+  await expect(page.getByTestId('position')).toHaveText('58,30');
+  await page.evaluate(() => (window as any).scene.current.walk(59, 31));
+  await expect(page.getByTestId('position')).toHaveText('59,31');
+  await page.screenshot({ path: info.outputPath('ilot-exil.png') });
+  await page.getByRole('button', { name: 'Retour test' }).click();
   await expect(page.getByTestId('position')).toHaveText('30,31');
+});
+
+test('une étoile de shérif suit le maire local ou un autre habitant', async ({ page }, info) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  const badge = () =>
+    page.evaluate(() => {
+      const s = (window as any).scene.current;
+      return {
+        self: Boolean(s.avatar.getByName('mayor-star')),
+        other: Boolean(s.guests.get('other')?.getByName('mayor-star')),
+      };
+    });
+  await expect.poll(badge).toEqual({ self: false, other: false });
+  await page.getByRole('button', { name: 'Élire test', exact: true }).click();
+  await expect.poll(badge).toEqual({ self: true, other: false });
+  await page.getByRole('button', { name: 'Élire other', exact: true }).click();
+  await expect.poll(badge).toEqual({ self: false, other: true });
+  await page.evaluate(() => {
+    const s = (window as any).scene.current;
+    s.focusTile(30, 31);
+    s.cameras.main.setZoom(2);
+  });
+  await page.screenshot({ path: info.outputPath('etoile-maire.png') });
 });
