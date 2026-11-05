@@ -64,7 +64,7 @@ function Harness() {
           Îlot test
         </button>
         <button onClick={() => setWorld(world)}>Retour test</button>
-        <button onClick={() => setVisitors((v) => v.map((p) => ({ ...p, x: 58, y: 30 })))}>
+        <button onClick={() => setVisitors((v) => v.map((p) => ({ ...p, x: 61, y: 30 })))}>
           Habitant banni
         </button>
         {['test', 'other'].map((id) => (

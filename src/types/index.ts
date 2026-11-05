@@ -3,7 +3,14 @@ export type Avatar = { skin: string; hair: string; shirt: string; pants: string 
 export type Profile = { id: string; username: string; tutorial_step: number; is_admin: boolean };
 export type Island = { id: string; owner_id: string; name: string; gold: number; score: number };
 export type Tree = { id: number; x: number; y: number; cut_at: string | null };
-export type Plot = { id: number; x: number; y: number };
+export type Plot = {
+  id: number;
+  x: number;
+  y: number;
+  owner_id?: string | null;
+  owner_name?: string | null;
+  house_id?: string | null;
+};
 export type Plantation = { plot_id: number; crop: CropKind; planted_at: string };
 export type Building = {
   id: string;

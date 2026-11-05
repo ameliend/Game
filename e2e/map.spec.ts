@@ -122,9 +122,9 @@ test('l’îlot de neuf cases reste voisin de la grande île et reçoit les bann
   await page.getByRole('button', { name: 'Habitant banni', exact: true }).click();
   await expect
     .poll(() => page.evaluate(() => (window as any).scene.current.guests.get('other')?.x))
-    .toBe((58 - 30) * 24);
+    .toBe((61 - 30) * 24);
   await page.getByRole('button', { name: 'Îlot test' }).click();
-  await expect(page.getByTestId('position')).toHaveText('58,30');
+  await expect(page.getByTestId('position')).toHaveText('61,30');
   expect(
     await page.evaluate(() => {
       const s = (window as any).scene.current;
@@ -133,9 +133,9 @@ test('l’îlot de neuf cases reste voisin de la grande île et reçoit les bann
   ).toBe(2);
   expect(await page.evaluate(() => (window as any).scene.current.cameras.main.zoom)).toBe(1.5);
   await page.evaluate(() => (window as any).scene.current.walk(30, 31));
-  await expect(page.getByTestId('position')).toHaveText('58,30');
-  await page.evaluate(() => (window as any).scene.current.walk(59, 31));
-  await expect(page.getByTestId('position')).toHaveText('59,31');
+  await expect(page.getByTestId('position')).toHaveText('61,30');
+  await page.evaluate(() => (window as any).scene.current.walk(62, 31));
+  await expect(page.getByTestId('position')).toHaveText('62,31');
   await page.screenshot({ path: info.outputPath('ilot-exil.png') });
   await page.getByRole('button', { name: 'Retour test' }).click();
   await expect(page.getByTestId('position')).toHaveText('30,31');

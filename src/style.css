@@ -2158,6 +2158,10 @@ select {
 .art-gym {
   background: #d9e6f0;
 }
+.plot-ownership {
+  margin: 8px 0;
+  font-size: 12px;
+}
 
 .exile-banner {
   position: absolute;
