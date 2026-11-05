@@ -190,7 +190,7 @@ describe('Commerces et revenus serveur', () => {
     expect(civic).toEqual({
       income_seconds: CIVIC_RULES.incomeMs / 1000,
       income_gold: CIVIC_RULES.incomeGold,
-      election_seconds: CIVIC_RULES.electionEveryMs / 1000,
+      election_seconds: 15 * 24 * 60 * 60, // migration 6 predates weekly mandates
       voting_seconds: CIVIC_RULES.votingMs / 1000,
     });
   });

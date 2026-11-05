@@ -117,6 +117,24 @@ export const BUILDINGS = {
     icon: '🏨',
     category: 'Commerces',
   },
+  coffeeshop: {
+    name: 'Coffeeshop',
+    price: 300,
+    points: 20,
+    size: 2,
+    color: 0xa47c55,
+    icon: '☕',
+    category: 'Commerces',
+  },
+  sexshop: {
+    name: 'Sexshop',
+    price: 500,
+    points: 20,
+    size: 2,
+    color: 0x9a5b80,
+    icon: '🩲',
+    category: 'Commerces',
+  },
   school: {
     name: 'École',
     price: 600,
@@ -207,7 +225,9 @@ export const PLACEABLES = { ...BUILDINGS, farm_plot: FARM_PLOT };
 export const CIVIC_RULES = {
   incomeMs: 24 * HOURS,
   incomeGold: 20,
-  electionEveryMs: 15 * 24 * HOURS,
+  electionEveryMs: 7 * 24 * HOURS,
   votingMs: 24 * HOURS,
+  runoffMs: HOURS,
+  exileMs: 24 * HOURS,
 };
 export const isCommerce = (kind: BuildingKind) => BUILDINGS[kind].category === 'Commerces';

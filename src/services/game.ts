@@ -11,8 +11,13 @@ export const action = (
   requestId = crypto.randomUUID(),
 ) => rpc('game_action', { p_action: type, p_payload: payload, p_request: requestId });
 export const civicService = {
-  vote: (candidateId: string, electionId: string) =>
-    action('vote', { candidate_id: candidateId, election_id: electionId }),
+  refresh: () => rpc('refresh_world'),
+  demolish: (id: string) => action('demolish', { id }),
+  proposeExile: (userId: string) => action('propose_exile', { user_id: userId }),
+  voteExile: (proposalId: string, round: number, yes: boolean) =>
+    action('vote_exile', { proposal_id: proposalId, round, yes }),
+  vote: (candidateId: string, electionId: string, round = 1) =>
+    action('vote', { candidate_id: candidateId, election_id: electionId, round }),
   setRegime: (regime: string) => action('set_regime', { regime }),
   claim: (id: string) => action('claim_income', { id }),
 };

@@ -97,3 +97,39 @@ test('les avatars superposés restent visibles et un arbre coupé ne laisse pas 
     )
     .toBe(false);
 });
+
+test('pose plusieurs carrés de route sans quitter le mode construction', async ({ page }) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await page.getByRole('button', { name: 'Mode route' }).click();
+  for (const [x, y] of [
+    [32, 30],
+    [33, 30],
+    [34, 30],
+  ]) {
+    const p = await coords(page, x, y);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.getByTestId('selection')).toHaveText(`place:${x},${y}`);
+    await expect(page.getByTestId('placement-mode')).toHaveText('road');
+  }
+});
+
+test('l’îlot temporaire remplace la grande carte et ne contient aucune ressource', async ({
+  page,
+}) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await page.getByRole('button', { name: 'Îlot test' }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).scene.current.world.island.id))
+    .toBe('exile:test');
+  expect(
+    await page.evaluate(() => {
+      const s = (window as any).scene.current;
+      return s.world.trees.length + s.world.plots.length + s.world.buildings.length;
+    }),
+  ).toBe(0);
+  expect(await page.evaluate(() => (window as any).scene.current.cameras.main.zoom)).toBe(1.5);
+  await page.evaluate(() => (window as any).scene.current.walk(45, 45));
+  await expect(page.getByTestId('position')).toHaveText('30,31');
+});
