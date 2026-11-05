@@ -78,7 +78,6 @@ type Panel =
   | null;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Une erreur est survenue.');
 export default function App() {
-  const [managedCasino, setManagedCasino] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null),
     [authReady, setAuthReady] = useState(!configured),
     [recovery, setRecovery] = useState(false),
@@ -294,7 +293,6 @@ export default function App() {
   }, [world?.island.id, world?.generation, Boolean(world?.exile)]);
   useEffect(() => {
     setDemolition(null);
-    setManagedCasino(null);
   }, [selection?.id]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
@@ -690,8 +688,7 @@ export default function App() {
       {selection &&
         !placement &&
         !world.exile &&
-        (selection.type === 'pol' ||
-          (building?.kind === 'casino' && managedCasino !== building.id)) && (
+        (selection.type === 'pol' || building?.kind === 'casino') && (
           <LuckModal
             key={String(selection.id)}
             kind={selection.type === 'pol' ? 'pol' : 'casino'}
@@ -699,17 +696,15 @@ export default function App() {
             gold={world.island.gold}
             available={network && !busy}
             onClose={() => {
-              setManagedCasino(null);
               setSelection(null);
             }}
             onRefresh={load}
-            onManage={building?.kind === 'casino' ? () => setManagedCasino(building.id) : undefined}
           />
         )}
       {selection &&
         selection.type !== 'ground' &&
         selection.type !== 'pol' &&
-        (building?.kind !== 'casino' || managedCasino === building.id) &&
+        building?.kind !== 'casino' &&
         !placement && (
           <section className="selection-card">
             <button

@@ -1135,6 +1135,11 @@ legend {
   display: flex;
   flex-direction: column;
 }
+.modal.modal-centered {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+}
 .modal::backdrop {
   background: #214e4855;
   backdrop-filter: blur(5px);

@@ -3,9 +3,21 @@ test('un seul débit par ticket, grattage et résultat accessibles', async ({ pa
   await page.goto('/e2e/luck.html');
   await page.getByRole('button', { name: 'Casino test' }).click();
   await expect(page.getByRole('dialog')).toContainText('Miser 5 pièces');
+  await expect(page.getByRole('dialog')).not.toContainText('Lots :');
+  await expect(page.getByRole('dialog')).not.toContainText('35 %');
+  await expect(page.getByRole('button', { name: 'Gérer le bâtiment' })).toHaveCount(0);
+  const assertCentered = async () => {
+    const box = await page.getByRole('dialog').boundingBox(),
+      viewport = page.viewportSize();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.x + box!.width / 2 - viewport!.width / 2)).toBeLessThan(2);
+    expect(Math.abs(box!.y + box!.height / 2 - viewport!.height / 2)).toBeLessThan(2);
+  };
+  await assertCentered();
   await page.getByRole('button', { name: 'Miser 5 pièces' }).click();
   await expect(page.getByTestId('calls')).toHaveText('1');
   await expect(page.getByLabel('Zone à gratter')).toBeVisible();
+  await assertCentered();
   await page.screenshot({ path: info.outputPath('casino-ticket.png') });
   await page.getByRole('button', { name: 'Révéler le ticket' }).click();
   await expect(page.getByRole('dialog').getByRole('status')).toContainText('gagné 25 pièces');
