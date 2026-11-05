@@ -85,7 +85,6 @@ export function LuckModal({
   available,
   onClose,
   onRefresh,
-  onManage,
   request = action,
 }: {
   kind: 'casino' | 'pol';
@@ -94,7 +93,6 @@ export function LuckModal({
   available: boolean;
   onClose: () => void;
   onRefresh: () => Promise<unknown>;
-  onManage?: () => void;
   request?: typeof action;
 }) {
   const [busy, setBusy] = useState(false),
@@ -126,16 +124,14 @@ export function LuckModal({
     }
   }
   return (
-    <Modal title={kind === 'casino' ? 'La couille en or' : 'Pol l’affreux lutin'} onClose={onClose}>
+    <Modal
+      title={kind === 'casino' ? 'La couille en or' : 'Pol l’affreux lutin'}
+      onClose={onClose}
+      centered={kind === 'casino'}
+    >
       {kind === 'casino' ? (
         <>
           <p>Voulez-vous miser 5 pièces pour tenter votre chance ?</p>
-          <p>Lots : 0, 1, 5, 10, 25, 50, 100 ou 250 pièces.</p>
-          <p className="muted">
-            0 : 35 % · 1 : 20 % · 5 : 10 % · 10 : 18 % · 25 : 8 % · 50 : 4 % · 100 : 4 % · 250 : 1
-            %. Un seul gros lot au maximum sur l’île tous les 14 jours ; pendant ce délai, ces
-            tirages donnent 0.
-          </p>
           {payout === null ? (
             <button
               className="primary"
@@ -176,17 +172,12 @@ export function LuckModal({
           ) : (
             <p role="status">
               {payout === 0 ? 'Perdu ! Aucun sou cette fois.' : `Tu as gagné ${payout} sous !`} Pol
-              repart. À dans 7 à 8 jours !
+              repart. À dans 4 à 5 jours !
             </p>
           )}
         </>
       )}
       {error && <p role="alert">{error}</p>}
-      {onManage && (
-        <button className="secondary" onClick={onManage}>
-          Gérer le bâtiment
-        </button>
-      )}
     </Modal>
   );
 }

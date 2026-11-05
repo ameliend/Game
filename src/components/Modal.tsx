@@ -4,10 +4,12 @@ export function Modal({
   title,
   onClose,
   children,
+  centered = false,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  centered?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -21,7 +23,7 @@ export function Modal({
   return (
     <dialog
       ref={ref}
-      className="modal"
+      className={centered ? 'modal modal-centered' : 'modal'}
       onCancel={onClose}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();

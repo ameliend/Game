@@ -89,7 +89,7 @@ it('rejects a ticket without sufficient funds', async () => {
   await db.exec('update public.profiles set gold=4;set local role authenticated');
   await expect(act('scratch', { id: casino })).rejects.toThrow('5 pièces');
 });
-it('awards Pol once globally, hides him and schedules the next random window 7 to 8 days later', async () => {
+it('awards Pol once globally, hides him and schedules the next random window 4 to 5 days later', async () => {
   const id = (await query('select pol_id from public.luck_state'))[0].pol_id;
   await db.exec('set local role authenticated');
   expect((await act('pol_deal', { id, choice: 'safe' }))[0].r.payout).toBe(50);
@@ -100,7 +100,7 @@ it('awards Pol once globally, hides him and schedules the next random window 7 t
   expect(
     (
       await query(
-        "select pol_at>clock_timestamp()+interval '7 days'-interval '1 minute' and pol_at<=clock_timestamp()+interval '8 days' as valid from public.luck_state",
+        "select pol_at>clock_timestamp()+interval '4 days'-interval '1 minute' and pol_at<=clock_timestamp()+interval '5 days' as valid from public.luck_state",
       )
     )[0].valid,
   ).toBe(true);
@@ -119,6 +119,14 @@ it('missed 24h visits expire and are rescheduled rather than staying forever', a
     "update public.luck_state set pol_at=clock_timestamp()-interval '25 hours';set local role authenticated",
   );
   expect((await query('select public.load_world() as w'))[0].w.pol).toBe(null);
+  await db.exec('reset role');
+  expect(
+    (
+      await query(
+        "select pol_at between clock_timestamp()+interval '4 days'-interval '1 minute' and clock_timestamp()+interval '5 days' as valid from public.luck_state",
+      )
+    )[0].valid,
+  ).toBe(true);
 });
 it('prevents callers bypassing the wrapper or editing the jackpot cooldown', async () => {
   await db.exec('set local role authenticated');

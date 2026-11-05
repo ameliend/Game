@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre, jusqu’à `supabase/migrations/202611050013_casino_pol.sql`. Si la migration 12 est déjà appliquée, exécutez seulement la 13 : elle ne réinitialise pas l’île.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre, jusqu’à `supabase/migrations/202611050014_pol_four_days.sql`. Si la migration 13 est déjà appliquée, exécutez seulement la 14 : elle ne réinitialise pas l’île.
 
-Sur une base neuve, exécutez les treize migrations, dans l’ordre :
+Sur une base neuve, exécutez les quatorze migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -35,6 +35,7 @@ Sur une base neuve, exécutez les treize migrations, dans l’ordre :
 11. `202611050011_plot_property_mayor_moves.sql`
 12. `202611050012_fresh_start_fences_catalogue.sql`
 13. `202611050013_casino_pol.sql`
+14. `202611050014_pol_four_days.sql`
 
 La migration 2 :
 
@@ -346,13 +347,13 @@ Les **clôtures** sont disponibles dans Décorations pour **1 pièce par case**.
 
 ### Casino et Pol (migration 13)
 
-Appliquer `202611050013_casino_pol.sql` après la migration 12, puis déployer le frontend. Aucun nouveau départ dans cette migration.
+Appliquer `202611050013_casino_pol.sql` après la migration 12, puis `202611050014_pol_four_days.sql` et déployer le frontend. Aucun nouveau départ dans ces migrations. La migration 14 réduit aussi les attentes déjà programmées de plus de cinq jours, sans interrompre une visite en cours.
 
-**La couille en or** est un casino de 3 × 3 cases, gratuit, sans points ni revenu quotidien. Son enseigne représente un testicule doré. Au clic, une modale propose un ticket à gratter pour 5 pièces ; le gain est crédité dès le tirage et le grattage le révèle. Fermer la modale ne fait pas perdre le gain. Un bouton permet de révéler le ticket sans geste de grattage et de gérer le bâtiment.
+**La couille en or** est un casino de 3 × 3 cases, gratuit, sans points ni revenu quotidien. Son enseigne représente un testicule doré. Au clic, une modale centrée propose un ticket à gratter pour 5 pièces ; le gain est crédité dès le tirage et le grattage le révèle. Fermer la modale ne fait pas perdre le gain. Un bouton permet de révéler le ticket sans geste de grattage. Les détails des probabilités et le bouton de gestion sont absents de cette modale.
 
 Probabilités côté PostgreSQL : 0 (35 %), 1 (20 %), 5 (10 %), 10 (18 %), 25 (8 %), 50 (4 %), 100 (4 %), 250 (1 %). Cela donne les groupes demandés 65 % / 30 % / 5 %. Après un lot de 100 ou 250, tous les casinos partagent un délai de 14 jours pendant lequel les tirages de gros lots donnent 0. C’est un plafond global, pas un gain garanti toutes les deux semaines. Les mises de 5 sont déduites des gains indiqués pour obtenir la variation du solde.
 
-**Pol l’affreux lutin** apparaît sur une case libre, avec une fenêtre de 24 h. Le premier habitant qui termine le deal reçoit soit 50 pièces garanties, soit 100 pièces avec une probabilité de 50 % (sinon 0), sans mise. Pol repart après le deal, même perdu, puis revient 7 jours plus un délai aléatoire de 0 à 24 h plus tard. Une visite manquée est reprogrammée au prochain chargement sur le même délai. Le premier passage commence à l’application de la migration.
+**Pol l’affreux lutin** apparaît sur une case libre, avec une fenêtre de 24 h. Le premier habitant qui termine le deal reçoit soit 50 pièces garanties, soit 100 pièces avec une probabilité de 50 % (sinon 0), sans mise. Pol repart après le deal, même perdu, puis revient 4 jours plus un délai aléatoire de 0 à 24 h plus tard. Une visite manquée est reprogrammée au prochain chargement sur le même délai. Le premier passage commence à l’application de la migration 13.
 
 Les actions sont interdites aux exilés et aux visiteurs non connectés. Les soldes, le délai de gros lot et le deal unique sont protégés par verrous et transactions serveur. Réessayer le même identifiant de requête renvoie le résultat initial sans second débit/crédit. Les tests `luck.test.ts` vérifient les règles SQL réelles ; `luck.spec.ts` et `commerce.spec.ts` couvrent les interfaces et les clics sur ordinateur/téléphone.
 
