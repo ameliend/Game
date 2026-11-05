@@ -835,15 +835,17 @@ export default function App() {
                 {world.island.gold} pièces disponibles
               </div>
               <div className="filters">
-                {['Tous', 'Habitations', 'Commerces', 'Services', 'Décorations'].map((c) => (
-                  <button
-                    className={category === c ? 'active' : ''}
-                    key={c}
-                    onClick={() => setCategory(c)}
-                  >
-                    {c}
-                  </button>
-                ))}
+                {['Tous', 'Habitations', 'Commerces', 'Agriculture', 'Services', 'Décorations'].map(
+                  (c) => (
+                    <button
+                      className={category === c ? 'active' : ''}
+                      key={c}
+                      onClick={() => setCategory(c)}
+                    >
+                      {c}
+                    </button>
+                  ),
+                )}
               </div>
               <div className="catalog">
                 {Object.entries(BUILDINGS)
@@ -858,7 +860,10 @@ export default function App() {
                       </div>
                       <div className="catalog-detail">
                         <h3>{b.name}</h3>
-                        <p>+{b.points} points de village</p>
+                        <p>
+                          +{b.points} points de village
+                          {key === 'farm' ? ' · Parcelles vendues séparément' : ''}
+                        </p>
                         <button
                           className="buy-button"
                           disabled={world.island.gold < b.price || !network}
