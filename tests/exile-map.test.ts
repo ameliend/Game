@@ -19,7 +19,8 @@ it('dessine exactement neuf cases carrées près de la côte, séparées par de 
   expect(new Set(tiles.map(([x]) => x)).size).toBe(3);
   expect(new Set(tiles.map(([, y]) => y)).size).toBe(3);
   for (const [x, y] of tiles) expect(land(x, y)).toBe(false);
-  expect(land(55, 30)).toBe(true);
+  expect(land(52, 30)).toBe(true);
+  expect(land(53, 30)).toBe(false);
   expect(worldLand(empty, 56, 30)).toBe(false);
   expect(worldLand(empty, 57, 30)).toBe(false);
   expect(worldLand(empty, 59, 30)).toBe(false);

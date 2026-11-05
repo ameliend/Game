@@ -1,10 +1,18 @@
 import Phaser from 'phaser';
-import { BUILDINGS, CROPS, RULES, PLACEABLES, EXILE_ISLAND, isCommerce } from '../config/game';
+import {
+  BUILDINGS,
+  CROPS,
+  RULES,
+  PLACEABLES,
+  EXILE_ISLAND,
+  CIVIC_RULES,
+  isCommerce,
+} from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
 import { drawTownHall, drawFarm, TOWNHALL_TOP } from './landmarkArt';
 import { drawCommerce, commerceSignY } from './commerceArt';
 import { residentOffset } from '../utils/residents';
-import { incomeStatus, electionOpen } from '../utils/civic';
+import { incomeStatus, effectiveIncome, electionOpen } from '../utils/civic';
 import {
   buildable,
   cropState,
@@ -156,6 +164,37 @@ export class IslandScene extends Phaser.Scene {
       true,
     );
   }
+  drawFence(g: Phaser.GameObjects.Graphics, x: number, y: number) {
+    const neighbors = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ].filter(([dx, dy]) =>
+      this.world.buildings.some((b) => b.kind === 'fence' && b.x === x + dx && b.y === y + dy),
+    );
+    const ends = (
+      neighbors.length
+        ? neighbors
+        : [
+            [1, 0],
+            [-1, 0],
+          ]
+    ).map(([dx, dy]) => iso(dx / 2, dy / 2));
+    for (const end of ends) {
+      g.lineStyle(4, 0xa87948);
+      g.lineBetween(0, -23, end.x, end.y - 23);
+      g.lineBetween(0, -12, end.x, end.y - 12);
+    }
+    for (const p of [{ x: 0, y: 0 }, ...ends]) {
+      g.fillStyle(0x815c39);
+      g.fillRoundedRect(p.x - 3, p.y - 32, 6, 33, 1);
+      g.fillStyle(0xd2a471);
+      g.fillRect(p.x - 2, p.y - 31, 3, 30);
+      g.fillStyle(0xe5bd88);
+      g.fillRect(p.x - 3, p.y - 33, 6, 3);
+    }
+  }
   diamond(
     g: Phaser.GameObjects.Graphics,
     x: number,
@@ -219,7 +258,7 @@ export class IslandScene extends Phaser.Scene {
     }
     // A small dock on the south shore.
     for (let i = 0; i < 5; i++) {
-      const p = iso(29 + i, 54);
+      const p = iso(29 + i, 51);
       this.diamond(g, p.x, p.y, 44, 23, 0xa77b50);
       g.lineStyle(1, 0x795a42);
       g.lineBetween(p.x - 18, p.y, p.x + 2, p.y + 9);
@@ -231,13 +270,13 @@ export class IslandScene extends Phaser.Scene {
       this.world.plantations.map((p) => cropState(p.planted_at, now)).join(',') +
       '|' +
       this.world.buildings
-        .filter((b) => isCommerce(b.kind))
+        .filter((b) => effectiveIncome(b) > 0)
         .map(
           (b) =>
             incomeStatus(
               b,
               now,
-              this.world.governance?.regime ?? 'communism',
+              this.world.governance?.regime ?? CIVIC_RULES.defaultRegime,
               this.world.profile.id,
             ).ready,
         )
@@ -380,6 +419,8 @@ export class IslandScene extends Phaser.Scene {
         drawFarm(g, b.size);
       } else if (b.kind === 'road') {
         this.diamond(g, 0, 0, 44, 22, 0xcbbd9a);
+      } else if (b.kind === 'fence') {
+        this.drawFence(g, b.x, b.y);
       } else if (b.kind === 'park') {
         this.diamond(g, 0, 0, w, h, 0x659f65);
         g.fillStyle(0x916c46);
@@ -521,13 +562,20 @@ export class IslandScene extends Phaser.Scene {
       const income = incomeStatus(
         b,
         now,
-        this.world.governance?.regime ?? 'communism',
+        this.world.governance?.regime ?? CIVIC_RULES.defaultRegime,
         this.world.profile.id,
       );
       const ballot = b.kind === 'townhall' && electionOpen(this.world.governance?.election, now);
       if (income.ready || ballot) {
         const yy =
-          p.y + (isCommerce(b.kind) ? commerceSignY(b.size, b.kind) - 40 : TOWNHALL_TOP - 28);
+          p.y +
+          (isCommerce(b.kind)
+            ? commerceSignY(b.size, b.kind) - 40
+            : b.kind === 'townhall'
+              ? TOWNHALL_TOP - 28
+              : b.kind === 'farm'
+                ? -130
+                : -(28 + b.size * 6) - b.size * 24 * 0.68 - 43);
         const badge = this.add.graphics().setPosition(p.x, yy).setDepth(1300);
         if (ballot) {
           badge.fillStyle(0xfff8db);
@@ -638,7 +686,9 @@ export class IslandScene extends Phaser.Scene {
   }
   setWorld(w: World) {
     const changed =
-      this.world?.island.id !== w.island.id || Boolean(this.world?.exile) !== Boolean(w.exile);
+      this.world?.island.id !== w.island.id ||
+      Boolean(this.world?.exile) !== Boolean(w.exile) ||
+      this.world?.generation !== w.generation;
     this.world = w;
     if (this.sys.isActive()) {
       this.redraw();
@@ -734,6 +784,17 @@ export class IslandScene extends Phaser.Scene {
     const p = iso(x + (size - 1) / 2, y + (size - 1) / 2);
     if (this.placement.kind === 'farm_plot') {
       this.diamond(this.ghost, p.x, p.y, 38, 18, ok ? 0x8c6649 : 0xef7665, 0.75);
+      return;
+    }
+    if (this.placement.kind === 'fence') {
+      this.ghost.lineStyle(3, ok ? 0x4cd6a0 : 0xef7665, 0.8);
+      this.ghost.lineBetween(p.x - 12, p.y - 27, p.x + 12, p.y - 15);
+      this.ghost.lineBetween(p.x - 12, p.y - 16, p.x + 12, p.y - 4);
+      for (const [dx, dy] of [
+        [-12, -6],
+        [12, 6],
+      ])
+        this.ghost.lineBetween(p.x + dx, p.y + dy, p.x + dx, p.y + dy - 32);
       return;
     }
     const w = size * W * 0.65;

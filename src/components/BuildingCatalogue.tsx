@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Coins, Plus } from 'lucide-react';
-import { BUILDINGS } from '../config/game';
+import { BUILDINGS, buildingIncome } from '../config/game';
 import type { BuildingKind } from '../config/game';
 export function BuildingCatalogue({
   gold,
@@ -52,8 +52,13 @@ export function BuildingCatalogue({
               <div className="catalog-detail">
                 <h3>{b.name}</h3>
                 <p>
-                  +{b.points} points de village
+                  {buildingIncome(key as BuildingKind) > 0
+                    ? `${buildingIncome(key as BuildingKind)} pièces / 24 h`
+                    : key === 'road' || key === 'fence'
+                      ? 'Pose continue · 1 pièce par case'
+                      : 'Aucun revenu'}
                   {key === 'farm' ? ' · Parcelles vendues séparément' : ''}
+                  {key === 'cottage' || key === 'house' ? ' · Aucun revenu après attribution' : ''}
                 </p>
                 <button
                   className="buy-button"

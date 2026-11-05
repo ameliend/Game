@@ -1,4 +1,4 @@
-import { EXILE_ISLAND, RULES } from '../config/game';
+import { EXILE_ISLAND, MAIN_ISLAND, RULES } from '../config/game';
 import type { World } from '../types';
 export function cropState(
   plantedAt: string,
@@ -21,7 +21,9 @@ export function land(x: number, y: number) {
     y >= 0 &&
     x < RULES.size &&
     y < RULES.size &&
-    (x - 29.5) ** 2 / 676 + (y - 29.5) ** 2 / 576 <= 1
+    (x - MAIN_ISLAND.center) ** 2 / MAIN_ISLAND.radiusX2 +
+      (y - MAIN_ISLAND.center) ** 2 / MAIN_ISLAND.radiusY2 <=
+      1
   );
 }
 export function exileLand(x: number, y: number) {

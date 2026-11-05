@@ -45,6 +45,7 @@ import {
   isCommerce,
   CIVIC_RULES,
   EXILE_ISLAND,
+  MAIN_ISLAND,
 } from './config/game';
 import type { BuildingKind, CropKind } from './config/game';
 import type { Avatar, Placement, Player, Selection, World } from './types';
@@ -58,7 +59,7 @@ import { HouseAssignment } from './components/HouseAssignment';
 import { HarvestControls } from './components/HarvestControls';
 import { canMoveBuilding } from './utils/property';
 import { CivicPanel } from './components/CivicPanel';
-import { incomeStatus, electionOpen } from './utils/civic';
+import { incomeStatus, effectiveIncome, electionOpen } from './utils/civic';
 import { Modal } from './components/Modal';
 import { Chat } from './components/Chat';
 const GameCanvas = lazy(() => import('./game/GameCanvas').then((m) => ({ default: m.GameCanvas })));
@@ -288,7 +289,7 @@ export default function App() {
     setPanel(null);
     setSelection(null);
     setPlacement(null);
-  }, [world?.island.id, Boolean(world?.exile)]);
+  }, [world?.island.id, world?.generation, Boolean(world?.exile)]);
   useEffect(() => setDemolition(null), [selection?.id]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
@@ -473,9 +474,12 @@ export default function App() {
               return;
             }
             if (s.type === 'income') {
+              const target = world.buildings.find((b) => b.id === s.id);
+              if (!target) return;
+              const amount = effectiveIncome(target);
               void perform(
                 () => civicService.claim(String(s.id)),
-                `+${CIVIC_RULES.incomeGold} pièces récupérées !`,
+                `+${amount} pièces récupérées !`,
               );
               return;
             }
@@ -569,7 +573,7 @@ export default function App() {
         <span className="live-dot" />{' '}
         {world.exile
           ? 'Îlot d’exil sans ressources'
-          : `Île commune · ${RULES.size} × ${RULES.size} cases`}
+          : `Île commune · ${MAIN_ISLAND.tiles.toLocaleString('fr-FR')} cases de terrain`}
       </div>
       {tutorial && !placement && !world.exile && (
         <section className="tutorial">
@@ -642,7 +646,10 @@ export default function App() {
         </button>
       </div>
       <button className="civic-button" onClick={() => setPanel('civic')}>
-        🏛️ Mairie · {world.governance?.regime === 'capitalism' ? 'Capitalisme' : 'Communisme'}{' '}
+        🏛️ Mairie ·{' '}
+        {(world.governance?.regime ?? CIVIC_RULES.defaultRegime) === 'capitalism'
+          ? 'Capitalisme'
+          : 'Communisme'}{' '}
         {electionOpen(world.governance?.election, now) ? '🗳️ Vote ouvert' : ''}
       </button>
       {placement && (
@@ -655,9 +662,7 @@ export default function App() {
             <small>
               {PLACEABLES[placement.kind].size} × {PLACEABLES[placement.kind].size} cases ·{' '}
               {placement.movingId ? 'Gratuit' : PLACEABLES[placement.kind].price + ' pièces'}
-              {placement.kind === 'road' && !placement.movingId
-                ? ' · Pose continue · Échap ou × pour terminer'
-                : ''}
+              {repeatPlacement(placement) ? ' · Pose continue · Échap ou × pour terminer' : ''}
             </small>
           </div>
           <button aria-label="Annuler la construction" onClick={() => setPlacement(null)}>
@@ -817,17 +822,17 @@ export default function App() {
                 />
               )}
 
-              {isCommerce(building.kind) &&
+              {effectiveIncome(building) > 0 &&
                 (() => {
                   const income = incomeStatus(
                     building,
                     now,
-                    world.governance?.regime ?? 'communism',
+                    world.governance?.regime ?? CIVIC_RULES.defaultRegime,
                     session.user.id,
                   );
                   return (
                     <div className="commerce-income">
-                      <p>Revenu : {CIVIC_RULES.incomeGold} pièces / 24 h</p>
+                      <p>Revenu : {income.amount} pièces / 24 h</p>
                       {income.ready ? (
                         <button
                           className="primary"
@@ -835,7 +840,7 @@ export default function App() {
                           onClick={() =>
                             void perform(
                               () => civicService.claim(building.id),
-                              `+${CIVIC_RULES.incomeGold} pièces récupérées !`,
+                              `+${income.amount} pièces récupérées !`,
                             )
                           }
                         >
@@ -860,6 +865,9 @@ export default function App() {
                   🗳️ Élections et régime économique
                 </button>
               )}
+              {(building.kind === 'townhall' ||
+                ((building.kind === 'house' || building.kind === 'cottage') &&
+                  building.assigned_to)) && <p>Aucun revenu pour ce bâtiment.</p>}
               <p>
                 {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
               </p>

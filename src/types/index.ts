@@ -23,8 +23,10 @@ export type Building = {
   assigned_at?: string | null;
   built_at?: string;
   income_claimed_cycle?: number;
+  income_started_at?: string | null;
 };
 export type World = {
+  generation?: number;
   island: Island;
   profile: Profile;
   avatar: Avatar;

@@ -20,3 +20,32 @@ test('un indicateur navigateur hors ligne ne bloque pas les achats quand le serv
   await page.getByRole('button', { name: 'Solde nul' }).click();
   await expect(buy).toBeDisabled();
 });
+
+test('le catalogue affiche les revenus en pièces et les exceptions des maisons et de la mairie', async ({
+  page,
+}) => {
+  await page.goto('/e2e/shop.html');
+  for (const [name, income] of [
+    ['Nail saloon', 15],
+    ['Roy Merlin', 50],
+    ['Hôpital', 80],
+    ['Grande maison', 30],
+  ]) {
+    const card = page
+      .locator('article')
+      .filter({ has: page.getByRole('heading', { name: String(name), exact: true }) });
+    await expect(card).toContainText(`${income} pièces / 24 h`);
+  }
+  await expect(
+    page
+      .locator('article')
+      .filter({ has: page.getByRole('heading', { name: 'Grande maison', exact: true }) }),
+  ).toContainText('Aucun revenu après attribution');
+  await expect(
+    page
+      .locator('article')
+      .filter({ has: page.getByRole('heading', { name: 'Mairie', exact: true }) }),
+  ).toContainText('Aucun revenu');
+  await page.getByRole('button', { name: 'Acheter Clôture pour 1 pièces', exact: true }).click();
+  await expect(page.getByTestId('selected')).toHaveText('fence');
+});

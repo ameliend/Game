@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050011_plot_property_mayor_moves.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 11 dans cet ordre.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre. Si votre jeu utilise déjà l’île commune, appliquez dans l’ordre les migrations manquantes jusqu’à `supabase/migrations/202611050012_fresh_start_fences_catalogue.sql`. Si vous êtes encore sur les îles individuelles, appliquez les migrations 2 à 12 dans cet ordre.
 
-Sur une base neuve, exécutez les onze migrations, dans l’ordre :
+Sur une base neuve, exécutez les douze migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -33,6 +33,7 @@ Sur une base neuve, exécutez les onze migrations, dans l’ordre :
 9. `202611050009_recovery_management.sql`
 10. `202611050010_exile_election_gym.sql`
 11. `202611050011_plot_property_mayor_moves.sql`
+12. `202611050012_fresh_start_fences_catalogue.sql`
 
 La migration 2 :
 
@@ -329,3 +330,49 @@ L’îlot des bannis est reculé de **trois cases vers l’est**, aux colonnes *
 Appliquez **uniquement la migration 11 après les migrations précédentes** dans Supabase SQL Editor, puis déployez le frontend et rechargez les navigateurs. Cette migration ne crédite aucune pièce et ne rejoue pas le cadeau de Cam.
 
 Validation : `tests/plot-property.test.ts` couvre le rayon et ses limites, les zones superposées, le propriétaire distinct du constructeur, les récoltes privées/communes, le déplacement des maisons et d’autres bâtiments, ainsi que la migration des présences sur l’îlot reculé. `tests/property-controls.test.tsx` et les tests navigateur vérifient les indications et boutons de récolte et de déplacement.
+
+## Nouveau départ, clôtures et revenus actualisés (migration 12)
+
+Cette migration effectue le nouveau départ demandé **une seule fois**. Elle archive l’ancien état du jeu dans `world_resets`, une table réservée à l’opérateur, avant de modifier les données. Une seconde exécution conserve la progression acquise depuis ce nouveau départ.
+
+Tous les habitants existants repartent avec **150 pièces**, un stock de bois et de récoltes vide, et le tutoriel au début. Les nouveaux inscrits reçoivent aussi 150 pièces. Les parcelles et cultures sont supprimées. Tous les bâtiments, routes et décorations sont retirés, **sauf les mairies**, qui conservent leur identifiant et leur constructeur. Si une mairie se trouve hors du nouveau terrain, elle est déplacée vers l’emplacement libre le plus proche ; si aucune mairie n’existait, une mairie commune est créée.
+
+L’ancien maire, les scrutins précédents et les exils sont remis à zéro. Un **nouveau scrutin de 24 h maximum** est ouvert immédiatement ; la règle de clôture dès le dernier vote reste active. Le régime de départ est le **capitalisme**. Les arbres sont régénérés : douze arbres de départ sur des cases libres, puis la génération habituelle de dix arbres par jour continue. Les comptes, pseudos et avatars sont conservés. Le chat et le journal des transactions restent disponibles ; chaque ajustement du solde à 150 est enregistré dans ce journal.
+
+La surface de terrain passe de **1 968 à 1 476 cases**, soit exactement **25 % de moins**. La grille de coordonnées reste de 60 × 60 ; les cases retirées deviennent de l’eau. L’îlot d’exil reste en (60–62, 29–31), avec ses neuf cases distinctes de ce total. Le client et le serveur utilisent le même tracé. Une génération d’île permet aux navigateurs de replacer l’avatar et de fermer les anciennes sélections lors d’une réinitialisation.
+
+Les **clôtures** sont disponibles dans Décorations pour **1 pièce par case**. Comme pour les routes, le mode reste sélectionné après chaque pose : cliquez sur plusieurs cases sans rouvrir le catalogue, puis terminez avec Échap ou ×. Les segments voisins se raccordent visuellement. Les clôtures bloquent le passage ; elles ne produisent pas de revenu. Leur déplacement conserve les droits habituels du constructeur, de l’administrateur et du maire.
+
+### Coûts et revenus en pièces
+
+La troisième colonne du tableau fourni correspond à des **pièces gagnées toutes les 24 h**. Le catalogue, la fiche du bâtiment, les pièces sur la carte et les montants versés utilisent les mêmes valeurs.
+
+| Bâtiment                    |  Coût | Revenu en pièces / 24 h |
+| --------------------------- | ----: | ----------------------: |
+| Petite maison non attribuée |   150 |                      10 |
+| Nail saloon                 |   250 |                      15 |
+| Coiffeur                    |   250 |                      15 |
+| Boulangerie                 |   300 |                      20 |
+| Coffeeshop                  |   300 |                      20 |
+| Boucherie                   |   350 |                      25 |
+| Grande maison non attribuée |   400 |                      30 |
+| Ferme                       |   400 |                      30 |
+| Pharmacie                   |   450 |                      35 |
+| Chocolaterie                |   450 |                      35 |
+| Sexshop                     |   500 |                      40 |
+| Restaurant                  |   500 |                      40 |
+| École                       |   600 |                      45 |
+| Roy Merlin                  |   700 |                      50 |
+| Megazone                    |   800 |                      55 |
+| Hôtel                       |   900 |                      60 |
+| Mairie                      | 1 000 |                   **0** |
+| Hôpital                     | 1 200 |                      80 |
+| Salle de sport              |   600 |                      20 |
+
+**Exception confirmée : une maison attribuée et une mairie ne donnent de revenu à personne**, y compris en communisme. Attribuer une maison supprime immédiatement sa pièce disponible et interdit sa récupération côté serveur. La mairie conserve son bulletin de vote lorsqu’un scrutin est ouvert. La salle de sport, absente du tableau fourni, garde son revenu précédent de 20 pièces.
+
+En capitalisme, le constructeur peut récupérer les revenus des autres bâtiments. En communisme, le premier habitant qui récupère la pièce garde le revenu. Le délai reste ancré à la construction, par périodes de 24 h, sans cumul des périodes manquées. Un déplacement ne redémarre pas cette horloge. Les anciens points de score du village ne sont pas les montants de ces revenus.
+
+Appliquez **la migration 12 après les migrations 1 à 11**, puis déployez le frontend et rechargez les navigateurs. Le nouveau départ devient effectif lors de l’exécution de ce SQL dans Supabase ; il n’est pas appliqué à la base hébergée par les tests locaux. Les mots de passe et les clés Supabase ne sont pas modifiés.
+
+Validation : `fresh-start.test.ts` teste les soldes, les stocks et cultures, l’archive, la conservation/relocalisation de la mairie, l’ouverture du scrutin, la répétition du SQL, les 1 476 cases et chaque revenu du tableau. Les tests de règles et les tests navigateur couvrent aussi les clôtures en continu, les pièces des bâtiments publics et l’absence de revenus des maisons attribuées et de la mairie.

@@ -18,6 +18,11 @@ const shops: [BuildingKind, number, number][] = [
   ['nail_salon', 38, 30],
   ['restaurant', 24, 38],
   ['townhall', 34, 38],
+  ['cottage', 17, 25],
+  ['house', 17, 34],
+  ['farm', 26, 45],
+  ['school', 40, 36],
+  ['hospital', 36, 44],
 ];
 const world: World = {
   island: { id: 'test', owner_id: 'test', name: 'Test des commerces', gold: 100, score: 0 },
@@ -37,6 +42,7 @@ const world: World = {
     built_at: built,
     created_by: 'self',
     income_claimed_cycle: 0,
+    assigned_to: kind === 'house' ? 'other' : null,
   })),
   governance: {
     regime: 'communism',

@@ -45,7 +45,7 @@ export function CivicPanel({
           </p>
           <p>
             {g.regime === 'capitalism'
-              ? 'Seul le constructeur peut récupérer le revenu de son commerce.'
+              ? 'Le revenu est réservé au bénéficiaire du bâtiment.'
               : 'Le premier habitant qui récupère la pièce garde le revenu.'}
           </p>
         </div>
