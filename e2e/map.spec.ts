@@ -60,3 +60,40 @@ test('les raccourcis du jeu ne bloquent pas la saisie de texte', async ({ page }
   await page.keyboard.press('ArrowUp', { delay: 220 });
   await expect(page.getByTestId('position')).not.toHaveText('30,31');
 });
+
+test('les avatars superposés restent visibles et un arbre coupé ne laisse pas de souche', async ({
+  page,
+}) => {
+  await page.goto('/e2e/map.html');
+  await page.waitForFunction(() => Boolean((window as any).scene.current?.sys?.isActive()));
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const s = (window as any).scene.current,
+          g = s.guests.get('other');
+        return g ? Math.abs(g.x - s.avatar.x) : 0;
+      }),
+    )
+    .toBeGreaterThan(20);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const s = (window as any).scene.current,
+          g = s.guests.get('other');
+        return g?.list.some((o: any) => o.text === 'Autre habitant');
+      }),
+    )
+    .toBe(true);
+  await page.getByRole('button', { name: 'Déplacer autre habitant' }).click();
+  await expect
+    .poll(() => page.evaluate(() => (window as any).scene.current.guests.get('other')?.x))
+    .toBe((35 - 32) * 24);
+  await page.getByRole('button', { name: 'Déconnecter autre habitant' }).click();
+  await expect.poll(() => page.evaluate(() => (window as any).scene.current.guests.size)).toBe(0);
+  await page.getByRole('button', { name: 'Coupe test' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => Boolean((window as any).scene.current.objects.getByName('tree:1'))),
+    )
+    .toBe(false);
+});

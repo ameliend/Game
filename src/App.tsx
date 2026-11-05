@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import type { Session, RealtimeChannel } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import {
   Axe,
   ArrowLeft,
@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import { configured, client } from './services/client';
+import { useResidents, residentsService } from './hooks/useResidents';
 import { authService } from './services/auth';
 import {
   civicService,
@@ -67,14 +68,6 @@ type Panel =
   | 'civic'
   | 'actions'
   | null;
-type Presence = {
-  id: string;
-  username: string;
-  island: string;
-  x: number;
-  y: number;
-  avatar: Avatar;
-};
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Une erreur est survenue.');
 export default function App() {
   const [session, setSession] = useState<Session | null>(null),
@@ -89,7 +82,6 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [toast, setToast] = useState(''),
     [players, setPlayers] = useState<Player[]>([]),
-    [online, setOnline] = useState<Presence[]>([]),
     [now, setNow] = useState(Date.now()),
     [offset, setOffset] = useState(0),
     [category, setCategory] = useState('Tous'),
@@ -97,12 +89,9 @@ export default function App() {
     [tile, setTile] = useState({ x: 30, y: 30 }),
     [network, setNetwork] = useState(navigator.onLine);
   const sceneRef = useRef<IslandScene | null>(null),
-    channelRef = useRef<RealtimeChannel | null>(null),
-    position = useRef({ ...RULES.spawn }),
     syncGeneration = useRef(0),
     operation = useRef(false),
-    toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
-    lastTrack = useRef(0);
+    toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notify = useCallback((s: string) => {
     setToast(s);
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -199,52 +188,11 @@ export default function App() {
       alive = false;
     };
   }, [session?.user.id, world?.island.score, panel]);
-  const myAvatar = useRef<Avatar | null>(null);
-  const myUsername = useRef('');
-  useEffect(() => {
-    if (world) {
-      myAvatar.current = world.avatar;
-      myUsername.current = world.profile.username;
-    }
-  }, [world]);
-  useEffect(() => {
-    if (!world || !session) return;
-    let alive = true;
-    const channel = client().channel('island-village-presence', {
-      config: { presence: { key: session.user.id } },
-    });
-    channelRef.current = channel;
-    const track = () =>
-      channel.track({
-        id: session.user.id,
-        username: myUsername.current || world.profile.username,
-        island: world.island.id,
-        ...position.current,
-        avatar: myAvatar.current || world.avatar,
-      });
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        if (alive)
-          setOnline([
-            ...new globalThis.Map(
-              Object.values(channel.presenceState<Presence>())
-                .flat()
-                .filter((p) => p.id && p.avatar && Number.isFinite(p.x) && Number.isFinite(p.y))
-                .map((p) => [p.id, p]),
-            ).values(),
-          ]);
-      })
-      .subscribe((s) => {
-        if (s === 'SUBSCRIBED') void track();
-      });
-    const timer = setInterval(() => void track(), 15_000);
-    return () => {
-      alive = false;
-      clearInterval(timer);
-      channelRef.current = null;
-      void client().removeChannel(channel);
-    };
-  }, [world?.island.id, session?.user.id]);
+  const {
+    residents: online,
+    error: presenceError,
+    updatePosition: onPosition,
+  } = useResidents(world ? session?.user.id : undefined);
   useEffect(() => {
     if (!world || !session) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -263,20 +211,6 @@ export default function App() {
       void client().removeChannel(channel);
     };
   }, [world?.island.id, session?.user.id, load]);
-  const onPosition = (x: number, y: number) => {
-    position.current = { x, y };
-
-    lastTrack.current = Date.now();
-    if (world && session)
-      void channelRef.current?.track({
-        id: session.user.id,
-        username: myUsername.current,
-        island: world.island.id,
-        x,
-        y,
-        avatar: myAvatar.current,
-      });
-  };
   useEffect(() => {
     const e = world?.governance?.election;
     if (!e) return;
@@ -287,6 +221,14 @@ export default function App() {
     const timer = setTimeout(() => void load(), Math.min(boundary - now + 100, 2_000_000_000));
     return () => clearTimeout(timer);
   }, [world?.governance?.election?.id, world?.governance?.election?.closes_at, offset, load]);
+  useEffect(() => {
+    if (
+      world &&
+      selection?.type === 'tree' &&
+      !world.trees.some((t) => t.id === selection.id && !t.cut_at)
+    )
+      setSelection(null);
+  }, [world, selection]);
   const previousMature = useRef(new Set<number>());
   useEffect(() => {
     if (!world) return;
@@ -365,6 +307,7 @@ export default function App() {
   }
   async function signOut() {
     try {
+      await residentsService.offline().catch(() => undefined);
       await authService.signOut();
       setWorld(null);
 
@@ -410,7 +353,9 @@ export default function App() {
     );
   if (!world) return <Landing onboarding onReady={() => void load()} />;
   const tree =
-    selection?.type === 'tree' ? world.trees.find((t) => t.id === selection.id) : undefined;
+    selection?.type === 'tree'
+      ? world.trees.find((t) => t.id === selection.id && !t.cut_at)
+      : undefined;
   const plot =
     selection?.type === 'plot' ? world.plots.find((p) => p.id === selection.id) : undefined;
   const plant = plot ? world.plantations.find((p) => p.plot_id === plot.id) : undefined;
@@ -529,6 +474,11 @@ export default function App() {
           Connexion perdue. Les actions sont suspendues ; votre progression reste sur le serveur.
         </div>
       )}
+      {presenceError && (
+        <div className="presence-warning" role="status">
+          Avatars en ligne : {presenceError}
+        </div>
+      )}
       {loadError && (
         <div className="connection-banner" role="alert">
           Synchronisation interrompue : {loadError}
@@ -630,41 +580,26 @@ export default function App() {
           </button>
           {tree && (
             <>
-              <span className="object-emoji">
-                {tree.cut_at && now - Date.parse(tree.cut_at) < RULES.regrowMs ? '🪵' : '🌳'}
-              </span>
-              <h3>
-                {tree.cut_at && now - Date.parse(tree.cut_at) < RULES.regrowMs
-                  ? 'Un peu de patience…'
-                  : 'Un arbre généreux'}
-              </h3>
-              {tree.cut_at && now - Date.parse(tree.cut_at) < RULES.regrowMs ? (
-                <p>
-                  Repousse dans{' '}
-                  <strong>{countdown(RULES.regrowMs - (now - Date.parse(tree.cut_at)))}</strong>
-                </p>
-              ) : (
-                <>
-                  <p>5 bois à récolter · 20 pièces au marché</p>
-                  <button
-                    className="primary"
-                    disabled={busy || !network}
-                    onClick={() =>
-                      void perform(
-                        () => {
-                          sceneRef.current?.animateChop(tree.id);
-                          return economyService.chop(tree.id);
-                        },
-                        '+5 bois récoltés',
-                        true,
-                      )
-                    }
-                  >
-                    <Axe size={16} />
-                    Couper l’arbre
-                  </button>
-                </>
-              )}
+              <span className="object-emoji">🌳</span>
+              <h3>Un arbre généreux</h3>
+              <p>5 bois à récolter · Repousse ailleurs après 30 minutes.</p>
+              <button
+                className="primary"
+                disabled={busy || !network}
+                onClick={() =>
+                  void perform(
+                    () => {
+                      sceneRef.current?.animateChop(tree.id);
+                      return economyService.chop(tree.id);
+                    },
+                    '+5 bois récoltés',
+                    true,
+                  )
+                }
+              >
+                <Axe size={16} />
+                Couper l’arbre
+              </button>
             </>
           )}
           {plot && (
@@ -1178,17 +1113,19 @@ export default function App() {
               </p>
               <h3>Arbres</h3>
               <div className="accessible-grid">
-                {world.trees.map((t, i) => (
-                  <button
-                    key={t.id}
-                    onClick={() => {
-                      setSelection({ type: 'tree', id: t.id, x: t.x, y: t.y });
-                      setPanel(null);
-                    }}
-                  >
-                    🌳 Arbre {i + 1} ({t.x}, {t.y})
-                  </button>
-                ))}
+                {world.trees
+                  .filter((t) => !t.cut_at)
+                  .map((t, i) => (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        setSelection({ type: 'tree', id: t.id, x: t.x, y: t.y });
+                        setPanel(null);
+                      }}
+                    >
+                      🌳 Arbre {i + 1} ({t.x}, {t.y})
+                    </button>
+                  ))}
               </div>
               <h3>Parcelles</h3>
               <div className="accessible-grid">

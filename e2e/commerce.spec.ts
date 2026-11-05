@@ -36,6 +36,9 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
         p = s.cameras.main.getWorldPoint(s.scale.width / 2, s.scale.height / 2);
       return Math.abs(p.x - o.x) < 1 && Math.abs(p.y - o.y) < 1;
     }, name);
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
     const p = await page.evaluate((name) => {
       const s = (window as any).scene.current,
         c = s.cameras.main,

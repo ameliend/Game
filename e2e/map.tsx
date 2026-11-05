@@ -18,6 +18,10 @@ const world: World = {
 };
 function Harness() {
   const ref = useRef<IslandScene | null>(null);
+  const [currentWorld, setWorld] = useState(world);
+  const [visitors, setVisitors] = useState([
+    { id: 'other', username: 'Autre habitant', x: 30, y: 31, avatar: world.avatar },
+  ]);
   const [selection, setSelection] = useState(''),
     [pos, setPos] = useState('30,31'),
     [place, setPlace] = useState<'cottage' | 'farm_plot' | null>(null);
@@ -25,13 +29,13 @@ function Harness() {
   return (
     <div className="game-shell">
       <GameCanvas
-        world={world}
+        world={currentWorld}
         placement={place ? { kind: place } : null}
         offset={0}
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
         onPlace={(x, y) => setSelection('place:' + x + ',' + y)}
         onPosition={(x, y) => setPos(x + ',' + y)}
-        guests={[{ id: 'other', username: 'Autre habitant', x: 32, y: 32, avatar: world.avatar }]}
+        guests={visitors}
         sceneRef={ref}
       />
       <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'white', padding: 10 }}>
@@ -44,6 +48,20 @@ function Harness() {
         <output data-testid="position">{pos}</output>
         <button onClick={() => setPlace(place ? null : 'cottage')}>Construction test</button>
         <button onClick={() => setPlace('farm_plot')}>Parcelle test</button>
+        <button onClick={() => setVisitors((v) => v.map((p) => ({ ...p, x: 35, y: 32 })))}>
+          Déplacer autre habitant
+        </button>
+        <button onClick={() => setVisitors([])}>Déconnecter autre habitant</button>
+        <button
+          onClick={() =>
+            setWorld({
+              ...world,
+              trees: world.trees.map((t) => ({ ...t, cut_at: new Date().toISOString() })),
+            })
+          }
+        >
+          Coupe test
+        </button>
       </div>
     </div>
   );

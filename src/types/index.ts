@@ -69,3 +69,12 @@ export type Governance = {
   epoch: string | null;
   election: Election | null;
 };
+
+export type Resident = {
+  id: string;
+  username: string;
+  island: string;
+  x: number;
+  y: number;
+  avatar: Avatar;
+};

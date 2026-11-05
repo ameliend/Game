@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { BUILDINGS, CROPS, RULES, PLACEABLES, isCommerce } from '../config/game';
 import type { Avatar, Placement, Selection, World } from '../types';
 import { drawCommerce, commerceSignY } from './commerceArt';
+import { residentOffset } from '../utils/residents';
 import { incomeStatus, electionOpen } from '../utils/civic';
 import { buildable, cropState, land, pathTo, walkable } from '../utils/rules';
 const W = 48,
@@ -30,6 +31,7 @@ export class IslandScene extends Phaser.Scene {
   private dragged = false;
   private pinch = 0;
   private lastClock = 0;
+  private visualKey = '';
   private pendingGuests: { id: string; x: number; y: number; avatar: Avatar; username: string }[] =
     [];
   private guests = new Map<string, Phaser.GameObjects.Container>();
@@ -204,11 +206,34 @@ export class IslandScene extends Phaser.Scene {
       g.lineBetween(p.x - 18, p.y, p.x + 2, p.y + 9);
     }
   }
+  private visualStateKey() {
+    const now = Date.now() + this.offset;
+    return (
+      this.world.plantations.map((p) => cropState(p.planted_at, now)).join(',') +
+      '|' +
+      this.world.buildings
+        .filter((b) => isCommerce(b.kind))
+        .map(
+          (b) =>
+            incomeStatus(
+              b,
+              now,
+              this.world.governance?.regime ?? 'communism',
+              this.world.profile.id,
+            ).ready,
+        )
+        .join(',') +
+      '|' +
+      electionOpen(this.world.governance?.election, now)
+    );
+  }
   redraw() {
     if (!this.objects) return;
+    this.visualKey = this.visualStateKey();
     this.objects.removeAll(true);
     const now = Date.now() + this.offset;
     for (const t of this.world.trees) {
+      if (t.cut_at) continue;
       const p = iso(t.x, t.y),
         g = this.add.graphics();
       g.setPosition(p.x, p.y)
@@ -216,13 +241,7 @@ export class IslandScene extends Phaser.Scene {
         .setName(`tree:${t.id}`);
       g.fillStyle(0x386f55, 0.18);
       g.fillEllipse(0, 2, 38, 15);
-      const cut = t.cut_at && now - Date.parse(t.cut_at) < RULES.regrowMs;
-      if (cut) {
-        g.fillStyle(0x976f46);
-        g.fillRoundedRect(-6, -9, 12, 12, 3);
-        g.fillStyle(0xd4ad73);
-        g.fillEllipse(0, -9, 13, 6);
-      } else if (t.id % 3 === 0) {
+      if (t.id % 3 === 0) {
         g.lineStyle(7, 0xb18c54);
         g.lineBetween(0, 0, 4, -49);
         g.lineStyle(1, 0x896e45);
@@ -259,7 +278,7 @@ export class IslandScene extends Phaser.Scene {
       }
       this.objects.add(g);
       const zone = this.add
-        .zone(p.x, p.y - (cut ? 3 : 28), cut ? 30 : 60, cut ? 22 : 76)
+        .zone(p.x, p.y - 28, 60, 76)
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true })
         .setDepth(t.x + t.y + 0.1);
@@ -536,7 +555,7 @@ export class IslandScene extends Phaser.Scene {
       this.onPlace(x, y);
       return;
     }
-    const tree = this.world.trees.find((t) => t.x === x && t.y === y),
+    const tree = this.world.trees.find((t) => !t.cut_at && t.x === x && t.y === y),
       plot = this.world.plots.find((p) => p.x === x && p.y === y),
       building = this.world.buildings.find(
         (b) => x >= b.x && x < b.x + b.size && y >= b.y && y < b.y + b.size,
@@ -573,6 +592,7 @@ export class IslandScene extends Phaser.Scene {
         },
         onComplete: () => {
           this.pos = n;
+          this.setGuests(this.pendingGuests);
           this.onPosition?.(n.x, n.y);
           this.avatar.setScale(1);
           step();
@@ -628,14 +648,16 @@ export class IslandScene extends Phaser.Scene {
       }
     for (const p of guests) {
       let c = this.guests.get(p.id);
+      let fresh = false;
       const avatarKey = JSON.stringify(p.avatar) + p.username;
       if (c && c.getData('avatarKey') !== avatarKey) {
+        this.tweens.killTweensOf(c);
         c.destroy();
         this.guests.delete(p.id);
         c = undefined;
       }
       if (!c) {
-        c = this.makeAvatar(p.avatar).setDepth(1499);
+        c = this.makeAvatar(p.avatar).setDepth(1499).setName(`resident:${p.id}`);
         c.add(
           this.add
             .text(0, -66, p.username, {
@@ -648,16 +670,31 @@ export class IslandScene extends Phaser.Scene {
         );
         c.setData('avatarKey', avatarKey);
         this.guests.set(p.id, c);
+        fresh = true;
       }
-      const pt = iso(p.x, p.y);
-      c.setPosition(pt.x, pt.y);
+      const pt = iso(p.x, p.y),
+        offset = residentOffset(p, guests, this.pos),
+        x = pt.x + offset.x,
+        y = pt.y;
+      const label = c.list.find((o) => o.type === 'Text') as Phaser.GameObjects.Text | undefined;
+      label?.setY(offset.labelY);
+      if (fresh) c.setPosition(x, y);
+      else if (c.x !== x || c.y !== y) {
+        this.tweens.killTweensOf(c);
+        this.tweens.add({ targets: c, x, y, duration: 250, ease: 'Linear' });
+      }
     }
   }
   update(time: number) {
     if (!this.world || !this.keys) return;
     if (time - this.lastClock > 1000) {
       this.lastClock = time;
-      this.redraw();
+      // Keep interactive targets stable while their appearance has not changed.
+      if (
+        this.visualKey !== this.visualStateKey() &&
+        !this.input.manager.pointers.some((p) => p.isDown)
+      )
+        this.redraw();
     }
     const active = document.activeElement;
     if (
