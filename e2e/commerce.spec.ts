@@ -23,6 +23,9 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
     expect(names).toContain('income:' + kind);
   }
   expect(names).toContain('ballot:townhall');
+  expect(names).toContain('pol');
+  expect(names).toContain('shop-label:casino');
+  expect(names).not.toContain('income:casino');
   for (const kind of ['cottage', 'farm', 'school', 'hospital'])
     expect(names).toContain(`income:${kind}`);
   expect(names).not.toContain('income:townhall');
@@ -33,6 +36,7 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
     'income:school',
     'income:hospital',
     'ballot:townhall',
+    'pol-hit',
   ]) {
     await page.evaluate((name) => {
       const s = (window as any).scene.current,
@@ -59,7 +63,7 @@ test('les commerces ont leurs enseignes, leurs pièces et la mairie son bulletin
     if (info.project.name === 'mobile') await page.touchscreen.tap(p.x, p.y);
     else await page.mouse.click(p.x, p.y);
     await expect(page.getByTestId('commerce-selection')).toHaveText(
-      name === 'ballot:townhall' ? 'civic:townhall' : name,
+      name === 'ballot:townhall' ? 'civic:townhall' : name === 'pol-hit' ? 'pol:pol-test' : name,
     );
   }
   await page.evaluate(() => {

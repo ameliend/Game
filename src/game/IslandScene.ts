@@ -282,7 +282,9 @@ export class IslandScene extends Phaser.Scene {
         )
         .join(',') +
       '|' +
-      electionOpen(this.world.governance?.election, now)
+      electionOpen(this.world.governance?.election, now) +
+      '|' +
+      (this.world.pol && Date.parse(this.world.pol.until) > now ? this.world.pol.id : '')
     );
   }
   redraw() {
@@ -290,6 +292,46 @@ export class IslandScene extends Phaser.Scene {
     this.visualKey = this.visualStateKey();
     this.objects.removeAll(true);
     const now = Date.now() + this.offset;
+    const pol = this.world.pol;
+    if (pol && !this.world.exile && Date.parse(pol.until) > now) {
+      const p = iso(pol.x, pol.y);
+      const g = this.add.graphics().setPosition(p.x, p.y).setDepth(1300).setName('pol');
+      g.fillStyle(0x315a36);
+      g.fillRoundedRect(-10, -25, 20, 22, 5);
+      g.fillStyle(0xf3c699);
+      g.fillCircle(0, -34, 9);
+      g.fillStyle(0xffffff);
+      g.fillTriangle(-8, -29, 8, -29, 0, -14);
+      g.fillStyle(0x3b9a51);
+      g.fillTriangle(-14, -39, 12, -39, -3, -64);
+      g.fillStyle(0xeec355);
+      g.fillCircle(0, -24, 3);
+      this.objects.add(g);
+      const label = this.add
+        .text(p.x, p.y - 78, 'Pol le lutin', {
+          fontSize: '12px',
+          backgroundColor: '#315a36',
+          color: '#fff4be',
+          padding: { x: 5, y: 3 },
+        })
+        .setOrigin(0.5)
+        .setDepth(1301);
+      this.objects.add(label);
+      const hit = this.add
+        .zone(p.x, p.y - 33, 55, 95)
+        .setDepth(1302)
+        .setName('pol-hit')
+        .setInteractive({ useHandCursor: true });
+      hit.on(
+        'pointerup',
+        (_p: Phaser.Input.Pointer, _x: number, _y: number, event: Phaser.Types.Input.EventData) => {
+          if (this.dragged || this.placement) return;
+          event.stopPropagation();
+          this.onSelect({ type: 'pol', id: pol.id, x: pol.x, y: pol.y });
+        },
+      );
+      this.objects.add(hit);
+    }
     for (const t of this.world.trees) {
       if (t.cut_at) continue;
       const p = iso(t.x, t.y),

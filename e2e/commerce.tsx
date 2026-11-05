@@ -10,6 +10,7 @@ import '../src/style.css';
 const built = new Date(Date.now() - 25 * 3600000).toISOString();
 const now = new Date().toISOString();
 const shops: [BuildingKind, number, number][] = [
+  ['casino', 25, 18],
   ['bakery', 22, 22],
   ['supermarket', 30, 20],
   ['butcher', 38, 22],
@@ -25,6 +26,7 @@ const shops: [BuildingKind, number, number][] = [
   ['hospital', 36, 44],
 ];
 const world: World = {
+  pol: { id: 'pol-test', x: 28, y: 28, until: new Date(Date.now() + 86400000).toISOString() },
   island: { id: 'test', owner_id: 'test', name: 'Test des commerces', gold: 100, score: 0 },
   profile: { id: 'self', username: 'Test', tutorial_step: 5, is_admin: false },
   avatar: { skin: '#dba77c', hair: '#754d32', shirt: '#eaa66d', pants: '#486f70' },
