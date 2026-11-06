@@ -12,7 +12,9 @@ export const action = (
 ) => rpc('game_action', { p_action: type, p_payload: payload, p_request: requestId });
 export const civicService = {
   refresh: () => rpc('refresh_world'),
-  demolish: (id: string) => action('demolish', { id }),
+  demolish: (id: string, targetType = 'building') =>
+    action('propose_demolition', { id, target_type: targetType }),
+  voteDemolition: (id: string, yes: boolean) => action('vote_demolition', { proposal_id: id, yes }),
   proposeExile: (userId: string) => action('propose_exile', { user_id: userId }),
   voteExile: (proposalId: string, round: number, yes: boolean) =>
     action('vote_exile', { proposal_id: proposalId, round, yes }),
@@ -32,6 +34,7 @@ export const agricultureService = {
   clear: (id: number) => action('clear', { id }),
 };
 export const constructionService = {
+  municipal: (kind: string, x: number, y: number) => action('municipal_build', { kind, x, y }),
   place: (kind: string, x: number, y: number) => action('build', { kind, x, y }),
   move: (id: string, x: number, y: number) => action('move', { id, x, y }),
   assign: (id: string, userId: string) => action('assign', { id, user_id: userId }),

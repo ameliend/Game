@@ -18,9 +18,9 @@ Sans configuration, l’application indique comment configurer Supabase et n’i
 
 ## Mettre à jour le projet Supabase existant
 
-Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre, jusqu’à `supabase/migrations/202611050014_pol_four_days.sql`. Si la migration 13 est déjà appliquée, exécutez seulement la 14 : elle ne réinitialise pas l’île.
+Dans **SQL Editor**, appliquez les migrations manquantes dans l’ordre, jusqu’à `supabase/migrations/202611060015_votes_treasury.sql`. Si la migration 14 est déjà appliquée, exécutez seulement la 15 : elle ne réinitialise pas l’île.
 
-Sur une base neuve, exécutez les quatorze migrations, dans l’ordre :
+Sur une base neuve, exécutez les quinze migrations, dans l’ordre :
 
 1. `202611040001_island_village.sql`
 2. `202611040002_shared_island.sql`
@@ -36,6 +36,7 @@ Sur une base neuve, exécutez les quatorze migrations, dans l’ordre :
 12. `202611050012_fresh_start_fences_catalogue.sql`
 13. `202611050013_casino_pol.sql`
 14. `202611050014_pol_four_days.sql`
+15. `202611060015_votes_treasury.sql`
 
 La migration 2 :
 
@@ -344,6 +345,26 @@ L’ancien maire, les scrutins précédents et les exils sont remis à zéro. Un
 La surface de terrain passe de **1 968 à 1 476 cases**, soit exactement **25 % de moins**. La grille de coordonnées reste de 60 × 60 ; les cases retirées deviennent de l’eau. L’îlot d’exil reste en (60–62, 29–31), avec ses neuf cases distinctes de ce total. Le client et le serveur utilisent le même tracé. Une génération d’île permet aux navigateurs de replacer l’avatar et de fermer les anciennes sélections lors d’une réinitialisation.
 
 Les **clôtures** sont disponibles dans Décorations pour **1 pièce par case**. Comme pour les routes, le mode reste sélectionné après chaque pose : cliquez sur plusieurs cases sans rouvrir le catalogue, puis terminez avec Échap ou ×. Les segments voisins se raccordent visuellement. Les clôtures bloquent le passage ; elles ne produisent pas de revenu. Leur déplacement conserve les droits habituels du constructeur, de l’administrateur et du maire.
+
+### Votes et bourse commune (migration 15)
+
+Appliquer `202611060015_votes_treasury.sql` après la 14 et déployer le frontend. Pas de remise à zéro des comptes, constructions ou stocks. Les fonctionnalités ci-dessous remplacent les règles historiques de points et de démolition immédiate.
+
+À la connexion, une élection, un vote d’exil ou une démolition en cours ouvre la mairie en modale. On peut y voter directement, puis fermer sans que les actualisations ordinaires rouvrent la même décision. Un nouveau scrutin ou tour peut la rouvrir. Les votes restent également accessibles depuis la mairie.
+
+Le maire soumet une démolition de **tout bâtiment** (casino, mairie, chemin, clôture, commerces, etc.) ou parcelle agricole depuis la mairie. Un scrutin de 24 h fixe la liste des habitants non exilés, y compris hors ligne ; le maire vote oui en proposant. Tous doivent approuver. Un non ou une expiration sans unanimité rejette la demande. Le dernier oui supprime l’objet sans remboursement, et les cultures si c’est une parcelle. Un ancien appel `demolish` propose désormais le vote et ne peut plus démolir immédiatement.
+
+Pour la police, le maire proposant et l’habitant visé sont exclus du vote. Le scrutin ferme dès que les autres électeurs non exilés ont tous voté, ou à son échéance. La majorité décide, une égalité avec suffrages exprimés ouvre un nouveau tour d’une heure. L’avatar d’un exilé est renvoyé par `online_residents` pendant ses 24 h, même sans présence connectée. Le statut « en ligne » reste distinct et la position demeure dans l’îlot de neuf cases.
+
+La **bourse de l’île** est un solde serveur distinct de chaque portefeuille. Tous les bâtiments privés, y compris casinos gratuits, chemins et clôtures, coûtent **3 pièces de taxe par 24 h complètes** au propriétaire déclaré, sinon au constructeur. Les parcelles agricoles ne sont pas des bâtiments et ne sont pas taxées. Les horloges des bâtiments existants commencent à l’installation de la migration, celles des nouveaux à leur construction. Aucun rattrapage antérieur à la migration. Les jours manqués sont rattrapés une seule fois, sans boucle quotidienne. Les versements et dépenses sont journalisés dans une table privée. Les objets publics sans propriétaire ne prélèvent aucun portefeuille personnel.
+
+Si le prélèvement met le solde en négatif, une échéance de **6 h** apparaît pour vendre des ressources. De nouvelles taxes ne repoussent pas cette échéance. Après 6 h en négatif, les actions du jeu, le déplacement et l’envoi de messages sont bloqués ; **seules les ventes au marché restent possibles pour rembourser**. Revenir à un solde nul ou positif débloque le jeu et efface l’échéance. Les tirages du casino ne permettent pas de contourner ce blocage.
+
+Le maire choisit **Mon portefeuille** ou **Bourse commune** dans le catalogue. Une construction financée par la bourse ne débite pas le maire et devient communale, sans taxe personnelle. Les chemins/clôtures conservent la pose continue et la source de financement sélectionnée. Les revenus d’un bâtiment communal productif vont dans la bourse quand un habitant les récupère. Le serveur refuse toute dépense communale d’un non-maire et vérifie le solde sous le verrou de l’île.
+
+Les points et le classement du village sont retirés de l’interface ; les anciens champs serveur sont conservés à zéro pour compatibilité, sans incidence sur les revenus en pièces. Pendant l’ouverture d’une modale ou fiche de sélection, Phaser suspend les clics et le déplacement. Un bref délai de fermeture empêche le clic du bouton de déclencher l’objet dessous.
+
+La maintenance passe par `ensure_civic_state`, exécutée chaque minute si Supabase Cron est installé, et par `refresh_world` au chargement puis toutes les minutes du navigateur. `load_world` ne fait pas de rattrapage fiscal. Les tests `votes-treasury.test.ts` utilisent PostgreSQL embarqué pour vérifier transactions et droits ; les scénarios navigateur couvrent l’arrivée avec votes et le blocage des clics.
 
 ### Casino et Pol (migration 13)
 

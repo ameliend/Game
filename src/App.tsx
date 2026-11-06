@@ -19,8 +19,6 @@ import {
   Settings,
   ShoppingBasket,
   Sprout,
-  Star,
-  Trophy,
   Users,
   X,
 } from 'lucide-react';
@@ -42,7 +40,6 @@ import {
   RULES,
   FARM_PLOT,
   PLACEABLES,
-  isCommerce,
   CIVIC_RULES,
   EXILE_ISLAND,
   MAIN_ISLAND,
@@ -55,6 +52,7 @@ import { Landing } from './components/Auth';
 import { AvatarEditor, AvatarPortrait } from './components/AvatarEditor';
 import { BuildingCatalogue } from './components/BuildingCatalogue';
 import { useServerConnection } from './hooks/useServerConnection';
+import { useArrivalVotes } from './hooks/useArrivalVotes';
 import { HouseAssignment } from './components/HouseAssignment';
 import { HarvestControls } from './components/HarvestControls';
 import { canMoveBuilding } from './utils/property';
@@ -66,16 +64,7 @@ import { Chat } from './components/Chat';
 const GameCanvas = lazy(() => import('./game/GameCanvas').then((m) => ({ default: m.GameCanvas })));
 import type { IslandScene } from './game/IslandScene';
 type Panel =
-  | 'build'
-  | 'farm'
-  | 'market'
-  | 'inventory'
-  | 'community'
-  | 'leaderboard'
-  | 'profile'
-  | 'civic'
-  | 'actions'
-  | null;
+  'build' | 'farm' | 'market' | 'inventory' | 'community' | 'profile' | 'civic' | 'actions' | null;
 const errorText = (e: unknown) => (e instanceof Error ? e.message : 'Une erreur est survenue.');
 export default function App() {
   const [session, setSession] = useState<Session | null>(null),
@@ -94,6 +83,7 @@ export default function App() {
     [offset, setOffset] = useState(0),
     [draftAvatar, setDraftAvatar] = useState<Avatar | null>(null),
     [tile, setTile] = useState({ x: 30, y: 30 });
+  const debtBlocked = Boolean(world?.debt && Date.parse(world.debt.deadline) <= now);
   const {
     available: network,
     success: connectionSuccess,
@@ -101,6 +91,7 @@ export default function App() {
   } = useServerConnection();
   const [demolition, setDemolition] = useState<string | null>(null),
     [maintenanceError, setMaintenanceError] = useState('');
+  const [municipal, setMunicipal] = useState(false);
   const sceneRef = useRef<IslandScene | null>(null),
     syncGeneration = useRef(0),
     operation = useRef(false),
@@ -201,7 +192,7 @@ export default function App() {
     return () => {
       alive = false;
     };
-  }, [session?.user.id, world?.island.score, panel]);
+  }, [session?.user.id, world?.buildings.length, panel]);
   const {
     residents: online,
     error: presenceError,
@@ -292,6 +283,18 @@ export default function App() {
     setPlacement(null);
   }, [world?.island.id, world?.generation, Boolean(world?.exile)]);
   useEffect(() => {
+    if (debtBlocked) {
+      setSelection(null);
+      setPlacement(null);
+      setPanel('market');
+    }
+  }, [debtBlocked, world?.island.id, world?.generation]);
+  useArrivalVotes(world, session?.user.id, now, () => {
+    setSelection(null);
+    setPlacement(null);
+    setPanel('civic');
+  });
+  useEffect(() => {
     setDemolition(null);
   }, [selection?.id]);
   const previousMature = useRef(new Set<number>());
@@ -354,7 +357,9 @@ export default function App() {
           ? agricultureService.addPlot(x, y)
           : b.movingId
             ? constructionService.move(b.movingId, x, y)
-            : constructionService.place(b.kind, x, y),
+            : b.municipal
+              ? constructionService.municipal(b.kind, x, y)
+              : constructionService.place(b.kind, x, y),
       b.kind === 'farm_plot'
         ? 'Nouvelle parcelle créée !'
         : b.movingId
@@ -368,7 +373,11 @@ export default function App() {
       notify('Construction impossible sur l’îlot d’exil.');
       return;
     }
-    setPlacement({ kind, movingId });
+    setPlacement({
+      kind,
+      movingId,
+      municipal: !movingId && municipal && world?.governance?.mayor_id === session?.user.id,
+    });
     setPanel(null);
     setSelection(null);
     notify('Choisissez une case libre. Vert : disponible, rouge : occupée. Échap pour terminer.');
@@ -454,7 +463,6 @@ export default function App() {
     market: 'Le marché de l’île',
     inventory: 'Votre sac à trésors',
     community: 'Les habitants de l’île',
-    leaderboard: 'Les bâtisseurs à l’honneur',
     profile: 'Votre petit personnage',
     actions: 'Explorer votre île',
     civic: 'La mairie et les élections',
@@ -466,8 +474,10 @@ export default function App() {
           world={world}
           playerAvatar={world.avatar}
           placement={placement}
+          blocked={Boolean(panel || (selection && selection.type !== 'ground') || debtBlocked)}
           offset={offset}
           onSelect={(s) => {
+            if (panel || (selection && selection.type !== 'ground') || debtBlocked) return;
             if (world.exile && s.type !== 'ground') {
               notify('Les actions sur l’île principale sont suspendues pendant votre exil.');
               return;
@@ -482,7 +492,9 @@ export default function App() {
               const amount = effectiveIncome(target);
               void perform(
                 () => civicService.claim(String(s.id)),
-                `+${amount} pièces récupérées !`,
+                target.public_funded
+                  ? `+${amount} pièces dans la bourse commune !`
+                  : `+${amount} pièces récupérées !`,
               );
               return;
             }
@@ -529,18 +541,19 @@ export default function App() {
           }
           <div className="stat score">
             <span>
-              <Star size={20} />
+              <Coins size={20} />
             </span>
             <div>
-              <small>Village</small>
+              <small>Bourse commune</small>
               <strong>
-                {world.island.score} <em>pts</em>
+                {(world.treasury ?? 0).toLocaleString('fr-FR')} <em>pièces</em>
               </strong>
             </div>
           </div>
         </div>
         <button
           className="profile-button"
+          disabled={debtBlocked}
           aria-label="Personnaliser mon avatar"
           onClick={() => {
             setDraftAvatar(world.avatar);
@@ -578,7 +591,7 @@ export default function App() {
           ? 'Îlot d’exil sans ressources'
           : `Île commune · ${MAIN_ISLAND.tiles.toLocaleString('fr-FR')} cases de terrain`}
       </div>
-      {tutorial && !placement && !world.exile && (
+      {tutorial && !placement && !world.exile && !debtBlocked && (
         <section className="tutorial">
           <div className="tutorial-icon">
             <Sprout size={24} />
@@ -665,6 +678,7 @@ export default function App() {
             <small>
               {PLACEABLES[placement.kind].size} × {PLACEABLES[placement.kind].size} cases ·{' '}
               {placement.movingId ? 'Gratuit' : PLACEABLES[placement.kind].price + ' pièces'}
+              {placement.municipal ? ' · Payé par la bourse commune' : ''}
               {repeatPlacement(placement) ? ' · Pose continue · Échap ou × pour terminer' : ''}
             </small>
           </div>
@@ -678,6 +692,23 @@ export default function App() {
           🏝️ Exil temporaire · Retour automatique dans{' '}
           {countdown(Date.parse(world.exile.until) - now)}. Aucune ressource ni construction sur cet
           îlot.
+        </div>
+      )}
+      {world.debt && (
+        <div className="debt-banner" role="alert">
+          {debtBlocked
+            ? 'Jeu bloqué : compte en négatif depuis 6 h.'
+            : `Compte en négatif : vendez des ressources avant le ${new Date(world.debt.deadline).toLocaleString('fr-FR')}.`}{' '}
+          Solde : {world.island.gold} pièces.{' '}
+          <button
+            onClick={() => {
+              setSelection(null);
+              setPlacement(null);
+              setPanel('market');
+            }}
+          >
+            Vendre au marché
+          </button>
         </div>
       )}
       {maintenanceError && (
@@ -694,7 +725,7 @@ export default function App() {
             kind={selection.type === 'pol' ? 'pol' : 'casino'}
             id={String(selection.id)}
             gold={world.island.gold}
-            available={network && !busy}
+            available={network && !busy && !debtBlocked}
             onClose={() => {
               setSelection(null);
             }}
@@ -863,7 +894,9 @@ export default function App() {
                             onClick={() =>
                               void perform(
                                 () => civicService.claim(building.id),
-                                `+${income.amount} pièces récupérées !`,
+                                building.public_funded
+                                  ? `+${income.amount} pièces dans la bourse commune !`
+                                  : `+${income.amount} pièces récupérées !`,
                               )
                             }
                           >
@@ -892,7 +925,12 @@ export default function App() {
                   ((building.kind === 'house' || building.kind === 'cottage') &&
                     building.assigned_to)) && <p>Aucun revenu pour ce bâtiment.</p>}
                 <p>
-                  {building.size} × {building.size} cases · {BUILDINGS[building.kind].points} points
+                  {building.size} × {building.size} cases
+                </p>
+                <p>
+                  {building.public_funded
+                    ? 'Bâtiment communal · sans taxe personnelle'
+                    : 'Taxe propriétaire : 3 pièces toutes les 24 h'}
                 </p>
                 <button
                   className="primary"
@@ -902,45 +940,45 @@ export default function App() {
                   <Move size={16} />
                   Déplacer gratuitement
                 </button>
-                {world.governance?.mayor_id === session.user.id &&
-                  (building.kind === 'cottage' ||
-                    building.kind === 'house' ||
-                    isCommerce(building.kind)) && (
-                    <div>
-                      {demolition === building.id ? (
-                        <>
-                          <p>
-                            Cette démolition est définitive et ne rembourse pas le constructeur.
-                          </p>
-                          <button
-                            className="primary"
-                            disabled={busy}
-                            onClick={() =>
-                              void perform(
-                                () => civicService.demolish(building.id),
-                                'Bâtiment démoli.',
-                                true,
-                              )
-                            }
-                          >
-                            Confirmer la démolition
-                          </button>
-                          <button className="text-button" onClick={() => setDemolition(null)}>
-                            Annuler
-                          </button>
-                        </>
-                      ) : (
-                        <button className="text-button" onClick={() => setDemolition(building.id)}>
-                          Démolir · pouvoir du maire
+                {world.governance?.mayor_id === session.user.id && (
+                  <div>
+                    {demolition === building.id ? (
+                      <>
+                        <p>
+                          La démolition exige l’accord unanime des habitants sous 24 h, sans
+                          remboursement.
+                        </p>
+                        <button
+                          className="primary"
+                          disabled={busy}
+                          onClick={() =>
+                            void perform(
+                              () => civicService.demolish(building.id),
+                              'Démolition soumise au vote des habitants.',
+                              true,
+                            )
+                          }
+                        >
+                          Soumettre la démolition au vote
                         </button>
-                      )}
-                    </div>
-                  )}
+                        <button className="text-button" onClick={() => setDemolition(null)}>
+                          Annuler
+                        </button>
+                      </>
+                    ) : (
+                      <button className="text-button" onClick={() => setDemolition(building.id)}>
+                        Démolir · pouvoir du maire
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </section>
         )}
-      <Chat userId={session.user.id} admin={world.profile.is_admin} notify={notify} />
+      {!debtBlocked && (
+        <Chat userId={session.user.id} admin={world.profile.is_admin} notify={notify} />
+      )}
       <div className="bottom-caption">
         <span>
           <Leaf size={13} /> Chaque village commence par une petite graine.
@@ -955,13 +993,13 @@ export default function App() {
             { key: 'market', label: 'Marché', icon: ShoppingBasket },
             { key: 'inventory', label: 'Inventaire', icon: Package },
             { key: 'community', label: 'Communauté', icon: Users },
-            { key: 'leaderboard', label: 'Classement', icon: Trophy },
           ] as const
         ).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             disabled={
-              Boolean(world.exile) && ['build', 'farm', 'market', 'inventory'].includes(key)
+              (debtBlocked && key !== 'market') ||
+              (Boolean(world.exile) && ['build', 'farm', 'market', 'inventory'].includes(key))
             }
             className={panel === key ? 'active' : ''}
             onClick={() => {
@@ -986,10 +1024,33 @@ export default function App() {
           {panel === 'civic' && (
             <CivicPanel
               governance={world.governance}
+              treasury={world.treasury ?? 0}
+              demolitionTargets={[
+                ...world.buildings.map((b) => ({
+                  id: b.id,
+                  type: 'building' as const,
+                  label: `${BUILDINGS[b.kind].name} · ${b.x}, ${b.y}`,
+                })),
+                ...world.plots.map((p) => ({
+                  id: String(p.id),
+                  type: 'plot' as const,
+                  label: `Parcelle · ${p.x}, ${p.y}`,
+                })),
+              ]}
+              onProposeDemolition={(id, type) =>
+                void perform(() => civicService.demolish(id, type), 'Démolition soumise au vote.')
+              }
+              onVoteDemolition={(id, yes) =>
+                void perform(() => civicService.voteDemolition(id, yes), 'Vote enregistré.')
+              }
+              onBuildMunicipal={() => {
+                setMunicipal(true);
+                setPanel('build');
+              }}
               players={players}
               userId={session.user.id}
               now={now}
-              busy={busy || !network || Boolean(world.exile)}
+              busy={busy || !network || Boolean(world.exile) || debtBlocked}
               onVote={(id, electionId, round) =>
                 void perform(() => civicService.vote(id, electionId, round), 'Vote enregistré !')
               }
@@ -1005,12 +1066,41 @@ export default function App() {
             />
           )}
           {panel === 'build' && (
-            <BuildingCatalogue
-              gold={world.island.gold}
-              available={network && !world.exile}
-              onChoose={startBuild}
-              onRetry={() => void load()}
-            />
+            <>
+              {world.governance?.mayor_id === session.user.id && (
+                <fieldset>
+                  <legend>Financement de la construction</legend>
+                  <label>
+                    <input
+                      type="radio"
+                      name="funding"
+                      checked={!municipal}
+                      onChange={() => setMunicipal(false)}
+                    />{' '}
+                    Mon portefeuille · {world.island.gold} pièces
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="funding"
+                      checked={municipal}
+                      onChange={() => setMunicipal(true)}
+                    />{' '}
+                    Bourse commune · {world.treasury ?? 0} pièces
+                  </label>
+                </fieldset>
+              )}
+              <BuildingCatalogue
+                gold={
+                  municipal && world.governance?.mayor_id === session.user.id
+                    ? (world.treasury ?? 0)
+                    : world.island.gold
+                }
+                available={network && !world.exile && !debtBlocked}
+                onChoose={startBuild}
+                onRetry={() => void load()}
+              />
+            </>
           )}
           {panel === 'farm' && (
             <>
@@ -1162,26 +1252,16 @@ export default function App() {
               )}
             </>
           )}
-          {(panel === 'community' || panel === 'leaderboard') && (
+          {panel === 'community' && (
             <>
               <p className="muted">
-                {panel === 'community'
-                  ? 'Tous les habitants partagent cette île. Retrouvez les personnes connectées sur la carte.'
-                  : 'Chaque maison, chaque jardin compte. Le classement se met à jour après les constructions.'}
+                Tous les habitants partagent cette île. Les exilés restent visibles même hors ligne.
               </p>
               <div className="player-list">
-                {players.map((p, i) => (
+                {players.map((p) => (
                   <article key={p.id}>
                     <span className="rank">
-                      {panel === 'leaderboard' ? (
-                        i < 3 ? (
-                          ['🥇', '🥈', '🥉'][i]
-                        ) : (
-                          i + 1
-                        )
-                      ) : (
-                        <Home size={23} />
-                      )}
+                      <Home size={23} />
                     </span>
                     <div>
                       <h3>
@@ -1194,16 +1274,17 @@ export default function App() {
                       <small className="player-status">
                         <span
                           className={
-                            'live-dot ' + (online.some((x) => x.id === p.id) ? '' : 'offline')
+                            'live-dot ' +
+                            (online.some((x) => x.id === p.id && x.online !== false)
+                              ? ''
+                              : 'offline')
                           }
                         />
-                        {online.some((x) => x.id === p.id) ? 'En ligne' : 'Hors ligne'}
+                        {online.some((x) => x.id === p.id && x.online !== false)
+                          ? 'En ligne'
+                          : 'Hors ligne'}
                       </small>
                     </div>
-                    <strong>
-                      {p.score}
-                      <small> pts</small>
-                    </strong>
                     <button className="secondary" onClick={() => locatePlayer(p)}>
                       Retrouver
                       <ArrowRight size={15} />
@@ -1212,7 +1293,7 @@ export default function App() {
                 ))}
               </div>
               {!players.length && (
-                <p className="empty">Le classement apparaîtra après le chargement des villages.</p>
+                <p className="empty">Les habitants apparaîtront après le chargement.</p>
               )}
             </>
           )}
@@ -1220,7 +1301,7 @@ export default function App() {
             <>
               <AvatarEditor value={draftAvatar ?? world.avatar} onChange={setDraftAvatar} />
               <p className="muted">
-                {world.profile.username} · {world.island.name} · {world.island.score} points
+                {world.profile.username} · {world.island.name}
               </p>
               <button
                 className="primary"

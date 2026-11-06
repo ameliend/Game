@@ -1,4 +1,6 @@
 import { ExilePanel } from './ExilePanel';
+import { DemolitionVotes } from './DemolitionVotes';
+import { useState } from 'react';
 import { CIVIC_RULES } from '../config/game';
 import type { Governance, Player, Regime } from '../types';
 import { countdown } from '../utils/rules';
@@ -13,6 +15,11 @@ export function CivicPanel({
   onRegime,
   onProposeExile,
   onVoteExile,
+  onVoteDemolition,
+  treasury = 0,
+  demolitionTargets = [],
+  onProposeDemolition,
+  onBuildMunicipal,
 }: {
   governance: Governance | undefined;
   players: Player[];
@@ -23,7 +30,13 @@ export function CivicPanel({
   onRegime: (regime: Regime) => void;
   onProposeExile?: (id: string) => void;
   onVoteExile?: (id: string, round: number, yes: boolean) => void;
+  onVoteDemolition?: (id: string, yes: boolean) => void;
+  treasury?: number;
+  demolitionTargets?: { id: string; type: 'building' | 'plot'; label: string }[];
+  onProposeDemolition?: (id: string, type: 'building' | 'plot') => void;
+  onBuildMunicipal?: () => void;
 }) {
+  const [target, setTarget] = useState('');
   const g = governance,
     e = g?.election,
     open = electionOpen(e, now),
@@ -36,6 +49,20 @@ export function CivicPanel({
     );
   return (
     <div className="civic-panel">
+      <div className="info-strip">
+        <div>
+          <h3>Bourse de l’île : {treasury} pièces</h3>
+          <p>
+            3 pièces par bâtiment privé toutes les 24 h, prélevées sur le propriétaire déclaré ou le
+            constructeur. Bourse distincte des portefeuilles personnels.
+          </p>
+          {g.mayor_id === userId && onBuildMunicipal && (
+            <button className="primary" disabled={busy} onClick={onBuildMunicipal}>
+              Construire avec la bourse commune
+            </button>
+          )}
+        </div>
+      </div>
       <div className="info-strip">
         <span style={{ fontSize: 30 }}>🏛️</span>
         <div>
@@ -155,6 +182,41 @@ export function CivicPanel({
           busy={busy}
           onPropose={onProposeExile}
           onVote={onVoteExile}
+        />
+      )}
+      {g.mayor_id === userId && onProposeDemolition && (
+        <fieldset>
+          <legend>Soumettre une démolition à l’unanimité</legend>
+          <label>
+            Élément à démolir
+            <select value={target} disabled={busy} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">Choisir un bâtiment, un chemin, une clôture ou une parcelle</option>
+              {demolitionTargets.map((t) => (
+                <option key={`${t.type}:${t.id}`} value={`${t.type}:${t.id}`}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="secondary"
+            disabled={busy || !target}
+            onClick={() => {
+              const [type, id] = target.split(':');
+              onProposeDemolition(id, type as 'building' | 'plot');
+              setTarget('');
+            }}
+          >
+            Proposer la démolition
+          </button>
+        </fieldset>
+      )}
+      {onVoteDemolition && (
+        <DemolitionVotes
+          proposals={g.demolition_proposals}
+          busy={busy}
+          now={now}
+          onVote={onVoteDemolition}
         />
       )}
       <p className="hint">

@@ -18,6 +18,7 @@ const world: World = {
   buildings: [],
 };
 function Harness() {
+  const [overlay, setOverlay] = useState(false);
   const ref = useRef<IslandScene | null>(null);
   const [currentWorld, setWorld] = useState(world);
   const [visitors, setVisitors] = useState([
@@ -31,6 +32,7 @@ function Harness() {
     <div className="game-shell">
       <GameCanvas
         world={currentWorld}
+        blocked={overlay}
         placement={place ? { kind: place } : null}
         offset={0}
         onSelect={(s) => setSelection(s.type + ':' + s.id)}
@@ -50,6 +52,21 @@ function Harness() {
         guests={visitors}
         sceneRef={ref}
       />
+      {overlay && (
+        <section
+          data-testid="test-overlay"
+          style={{
+            position: 'fixed',
+            inset: '35% 12%',
+            zIndex: 100,
+            background: 'white',
+            padding: 30,
+          }}
+        >
+          <p>Arbre sélectionné · les éléments sous ce panneau sont bloqués</p>
+          <button onClick={() => setOverlay(false)}>Couper et fermer</button>
+        </section>
+      )}
       <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'white', padding: 10 }}>
         <label>
           Message de test
@@ -58,6 +75,7 @@ function Harness() {
         </label>
         <output data-testid="selection">{selection}</output>
         <output data-testid="placement-mode">{place ?? 'none'}</output>
+        <button onClick={() => setOverlay(true)}>Ouvrir panneau arbre</button>
         <button onClick={() => setPlace('road')}>Mode route</button>
         <button onClick={() => setPlace('fence')}>Mode clôture</button>
         <button onClick={() => setPlace(null)}>Terminer la pose</button>

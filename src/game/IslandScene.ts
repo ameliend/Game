@@ -34,6 +34,21 @@ export class IslandScene extends Phaser.Scene {
   playerAvatar?: Avatar;
   placement: Placement = null;
   offset = 0;
+  uiBlocked = false;
+  private unblockTimer?: Phaser.Time.TimerEvent;
+  setUiBlocked(blocked: boolean) {
+    this.unblockTimer?.remove();
+    if (blocked) {
+      this.uiBlocked = true;
+      if (this.input) this.input.enabled = false;
+      this.input?.keyboard?.resetKeys();
+    } else if (this.time) {
+      this.unblockTimer = this.time.delayedCall(150, () => {
+        this.uiBlocked = false;
+        this.input.enabled = true;
+      });
+    } else this.uiBlocked = false;
+  }
   onSelect!: (s: Selection) => void;
   onPlace!: (x: number, y: number) => void;
   private terrain!: Phaser.GameObjects.Graphics;
@@ -57,6 +72,7 @@ export class IslandScene extends Phaser.Scene {
     super('island');
   }
   create() {
+    this.setUiBlocked(this.uiBlocked);
     this.cameras.main.setBackgroundColor('#72c9cd');
     this.terrain = this.add.graphics();
     this.objects = this.add.container();
@@ -123,6 +139,7 @@ export class IslandScene extends Phaser.Scene {
       }
     });
     this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
+      if (this.uiBlocked || (p.event?.target && p.event.target !== this.game.canvas)) return;
       this.pinch = 0;
       if (this.dragged) return;
       const pt = this.cameras.main.getWorldPoint(p.x, p.y);
@@ -910,6 +927,7 @@ export class IslandScene extends Phaser.Scene {
         this.redraw();
     }
     const active = document.activeElement;
+    if (this.uiBlocked) return;
     if (
       active instanceof HTMLElement &&
       (active.isContentEditable ||

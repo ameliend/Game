@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import Phaser from 'phaser';
 import { IslandScene } from './IslandScene';
 import type { Avatar, Placement, Selection, World } from '../types';
@@ -12,6 +12,7 @@ export function GameCanvas({
   onPosition,
   guests,
   sceneRef,
+  blocked = false,
 }: {
   world: World;
   playerAvatar?: Avatar;
@@ -22,6 +23,7 @@ export function GameCanvas({
   onPosition: (x: number, y: number) => void;
   guests: { id: string; x: number; y: number; avatar: Avatar; username: string }[];
   sceneRef: React.RefObject<IslandScene | null>;
+  blocked?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const callbacks = useRef({ onSelect, onPlace, onPosition });
@@ -31,6 +33,7 @@ export function GameCanvas({
     scene.world = world;
     scene.playerAvatar = playerAvatar;
     scene.offset = offset;
+    scene.uiBlocked = blocked;
     scene.onSelect = (s) => callbacks.current.onSelect(s);
     scene.onPlace = (x, y) => callbacks.current.onPlace(x, y);
     scene.onPosition = (x, y) => callbacks.current.onPosition(x, y);
@@ -53,6 +56,9 @@ export function GameCanvas({
       game.destroy(true);
     };
   }, []);
+  useLayoutEffect(() => {
+    sceneRef.current?.setUiBlocked(blocked);
+  }, [blocked]);
   useEffect(() => {
     if (sceneRef.current) {
       sceneRef.current.playerAvatar = playerAvatar;
