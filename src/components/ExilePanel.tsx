@@ -65,6 +65,11 @@ export function ExilePanel({
             </p>
             {open ? (
               <>
+                <p>
+                  {proposal.voted_count ?? proposal.yes + proposal.no} /{' '}
+                  {proposal.elector_count ?? '?'} habitants ont voté. Le maire et la personne visée
+                  ne votent pas ; clôture dès que les autres ont tous voté.
+                </p>
                 <p>Fin du tour dans {countdown(Date.parse(proposal.closes_at) - now)}</p>
                 {proposal.my_vote !== null ? (
                   <p>Votre vote : {proposal.my_vote ? 'Oui' : 'Non'}</p>

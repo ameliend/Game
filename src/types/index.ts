@@ -13,6 +13,7 @@ export type Plot = {
 };
 export type Plantation = { plot_id: number; crop: CropKind; planted_at: string };
 export type Building = {
+  public_funded?: boolean;
   id: string;
   kind: BuildingKind;
   x: number;
@@ -26,6 +27,8 @@ export type Building = {
   income_started_at?: string | null;
 };
 export type World = {
+  treasury?: number;
+  debt?: { deadline: string; blocked: boolean } | null;
   pol?: { id: string; x: number; y: number; until: string } | null;
   generation?: number;
   island: Island;
@@ -61,7 +64,11 @@ export type Selection = {
   x: number;
   y: number;
 };
-export type Placement = { kind: BuildingKind | 'farm_plot'; movingId?: string } | null;
+export type Placement = {
+  kind: BuildingKind | 'farm_plot';
+  movingId?: string;
+  municipal?: boolean;
+} | null;
 
 export type Regime = 'communism' | 'capitalism';
 export type Election = {
@@ -80,6 +87,7 @@ export type Election = {
   can_vote?: boolean;
 };
 export type Governance = {
+  demolition_proposals?: DemolitionProposal[];
   regime: Regime;
   mayor_id: string | null;
   epoch: string | null;
@@ -90,6 +98,8 @@ export type Governance = {
 };
 
 export type Resident = {
+  online?: boolean;
+  exiled?: boolean;
   id: string;
   username: string;
   island: string;
@@ -99,6 +109,8 @@ export type Resident = {
 };
 
 export type ExileProposal = {
+  elector_count?: number;
+  voted_count?: number;
   id: string;
   target_id: string;
   target_name: string;
@@ -108,6 +120,19 @@ export type ExileProposal = {
   status: 'open' | 'accepted' | 'rejected';
   yes: number;
   no: number;
+  my_vote: boolean | null;
+  can_vote: boolean;
+};
+export type DemolitionProposal = {
+  id: string;
+  target_type: 'building' | 'plot';
+  target_id: string;
+  snapshot: { kind?: BuildingKind; x: number; y: number };
+  closes_at: string;
+  status: 'open' | 'accepted' | 'rejected';
+  yes: number;
+  no: number;
+  elector_count: number;
   my_vote: boolean | null;
   can_vote: boolean;
 };

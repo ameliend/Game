@@ -12,7 +12,8 @@ export function incomeStatus(building: Building, now: number, regime: Regime, us
   return {
     ready,
     amount: effectiveIncome(building),
-    canClaim: ready && (regime === 'communism' || building.created_by === userId),
+    canClaim:
+      ready && (building.public_funded || regime === 'communism' || building.created_by === userId),
     remaining: Number.isFinite(built)
       ? Math.max(0, built + (Math.max(0, cycle) + 1) * CIVIC_RULES.incomeMs - now)
       : CIVIC_RULES.incomeMs,
